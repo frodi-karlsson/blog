@@ -1,0 +1,63 @@
+@use "../base/variables" as vars;
+
+.prose {
+  max-width: 65ch;
+  line-height: 1.75;
+  color: vars.$text-main;
+
+  > * + * {
+    margin-top: vars.$space-6;
+  }
+
+  h1, h2, h3, h4 {
+    color: vars.$text-strong;
+    margin-top: vars.$space-12;
+    margin-bottom: vars.$space-4;
+  }
+
+  h1 + *, h2 + *, h3 + *, h4 + * {
+    margin-top: 0;
+  }
+
+  p {
+    margin-bottom: vars.$space-6;
+  }
+
+  ul, ol {
+    padding-left: vars.$space-6;
+    margin-bottom: vars.$space-6;
+    
+    li {
+      margin-bottom: vars.$space-2;
+    }
+  }
+
+  blockquote {
+    border-left: 4px solid vars.$primary;
+    padding-left: vars.$space-6;
+    font-style: italic;
+    color: vars.$text-strong;
+    margin: vars.$space-8 0;
+  }
+
+  code {
+    background: vars.$surface-muted;
+    padding: 0.2em 0.4em;
+    border-radius: 4px;
+    font-family: vars.$font-mono;
+    font-size: 0.9em;
+  }
+
+  pre {
+    background: vars.$surface-muted;
+    padding: vars.$space-4;
+    border-radius: vars.$radius-base;
+    overflow-x: auto;
+    border: 1px solid vars.$border-light;
+
+    code {
+      background: transparent;
+      padding: 0;
+    }
+  }
+}

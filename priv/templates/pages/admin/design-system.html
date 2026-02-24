@@ -1,0 +1,174 @@
+<% layout.html %>
+  <slot:title>Design System Showcase</slot:title>
+  <slot:body>
+    <div class="shell stack">
+      <header class="stack stack--tight">
+        <h1>Design System</h1>
+        <p class="text-subtle">A comprehensive showcase of all semantic components and layout patterns.</p>
+      </header>
+
+      <!-- Color Palette -->
+      <section class="card">
+        <div class="card-header"><h2>Color Palette (Primitives)</h2></div>
+        <div class="card-body stack">
+          <h3>Stone (Neutrals)</h3>
+          <div class="swatch-grid">
+            <div class="swatch"><div class="swatch-color bg-stone-50"></div><span class="swatch-label">50</span></div>
+            <div class="swatch"><div class="swatch-color bg-stone-100"></div><span class="swatch-label">100</span></div>
+            <div class="swatch"><div class="swatch-color bg-stone-200"></div><span class="swatch-label">200</span></div>
+            <div class="swatch"><div class="swatch-color bg-stone-300"></div><span class="swatch-label">300</span></div>
+            <div class="swatch"><div class="swatch-color bg-stone-400"></div><span class="swatch-label">400</span></div>
+            <div class="swatch"><div class="swatch-color bg-stone-500"></div><span class="swatch-label">500</span></div>
+            <div class="swatch"><div class="swatch-color bg-stone-600"></div><span class="swatch-label">600</span></div>
+            <div class="swatch"><div class="swatch-color bg-stone-700"></div><span class="swatch-label">700</span></div>
+            <div class="swatch"><div class="swatch-color bg-stone-800"></div><span class="swatch-label">800</span></div>
+            <div class="swatch"><div class="swatch-color bg-stone-900"></div><span class="swatch-label">900</span></div>
+            <div class="swatch"><div class="swatch-color bg-stone-950"></div><span class="swatch-label">950</span></div>
+          </div>
+
+          <h3>Orange (Primary)</h3>
+          <div class="swatch-grid">
+            <div class="swatch"><div class="swatch-color bg-orange-50"></div><span class="swatch-label">50</span></div>
+            <div class="swatch"><div class="swatch-color bg-orange-100"></div><span class="swatch-label">100</span></div>
+            <div class="swatch"><div class="swatch-color bg-orange-200"></div><span class="swatch-label">200</span></div>
+            <div class="swatch"><div class="swatch-color bg-orange-300"></div><span class="swatch-label">300</span></div>
+            <div class="swatch"><div class="swatch-color bg-orange-400"></div><span class="swatch-label">400</span></div>
+            <div class="swatch"><div class="swatch-color bg-orange-500"></div><span class="swatch-label">500</span></div>
+            <div class="swatch"><div class="swatch-color bg-orange-600"></div><span class="swatch-label">600</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Typography -->
+      <section class="card">
+        <div class="card-header"><h2>Typography</h2></div>
+        <div class="card-body stack">
+          <h1>Heading 1</h1>
+          <h2>Heading 2</h2>
+          <h3>Heading 3</h3>
+          <h4>Heading 4</h4>
+          <p>Standard paragraph text. This is the main body font used throughout the application.</p>
+          <p class="text-subtle">Subtle text used for secondary information or metadata.</p>
+        </div>
+      </section>
+
+      <!-- Badges -->
+      <section class="card">
+        <div class="card-header"><h2>Badges</h2></div>
+        <div class="card-body">
+          <div class="cluster">
+            <span class="badge badge--primary">Primary</span>
+            <span class="badge badge--secondary">Secondary</span>
+            <span class="badge badge--primary badge--pill">Pill Badge</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Alerts -->
+      <section class="card">
+        <div class="card-header"><h2>Alerts</h2></div>
+        <div class="card-body stack">
+          <div class="alert alert--info">
+            <div>
+              <strong class="alert-title">Heads up!</strong>
+              <p>This is an informational alert for your users.</p>
+            </div>
+          </div>
+          <div class="alert alert--success">
+            <div>
+              <strong class="alert-title">Success</strong>
+              <p>The operation was completed successfully.</p>
+            </div>
+          </div>
+          <div class="alert alert--danger">
+            <div>
+              <strong class="alert-title">Error</strong>
+              <p>Something went wrong. Please try again later.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Buttons -->
+      <section class="card">
+        <div class="card-header"><h2>Buttons</h2></div>
+        <div class="card-body">
+          <div class="cluster">
+            <button class="btn btn--primary">Primary Button</button>
+            <button class="btn btn--outline">Outline Button</button>
+            <button class="btn btn--ghost">Ghost Button</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Prose (Blog Content) -->
+      <section class="card">
+        <div class="card-header"><h2>Prose (Blog Style)</h2></div>
+        <div class="card-body">
+          <div class="prose">
+            <h3>Article Title Inside Prose</h3>
+            <p>The <code>.prose</code> class is designed for long-form content. It manages vertical rhythm, line length, and styling for standard HTML elements like lists and quotes.</p>
+            <ul>
+              <li>First item in a list</li>
+              <li>Second item with some <strong>bold text</strong></li>
+            </ul>
+            <blockquote>
+              "This is a blockquote. It's used to highlight important excerpts or citations within a blog post."
+            </blockquote>
+            <pre><code>def hello do
+  IO.puts "Hello World"
+end</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- Forms -->
+      <section class="card">
+        <div class="card-header"><h2>Forms</h2></div>
+        <div class="card-body stack">
+          <div class="form-group">
+            <label>Full Name</label>
+            <input type="text" class="input" placeholder="John Doe">
+          </div>
+          <div class="form-group">
+            <label>Email Address</label>
+            <input type="email" class="input" placeholder="john@example.com">
+            <span class="help-text">We'll never share your email with third parties.</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Layout Patterns: Stacks -->
+      <section class="card">
+        <div class="card-header"><h2>Stacks</h2></div>
+        <div class="card-body grid">
+          <div class="stack stack--tight">
+            <p class="text-subtle">Tight Stack</p>
+            <div style="background: var(--surface-muted, #292524); height: 20px;"></div>
+            <div style="background: var(--surface-muted, #292524); height: 20px;"></div>
+          </div>
+          <div class="stack">
+            <p class="text-subtle">Default Stack</p>
+            <div style="background: var(--surface-muted, #292524); height: 20px;"></div>
+            <div style="background: var(--surface-muted, #292524); height: 20px;"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Layout Patterns: Grid -->
+      <section class="stack stack--tight">
+        <h2>Grid Layout</h2>
+        <div class="grid">
+          <div class="card"><div class="card-body">Grid Item 1</div></div>
+          <div class="card"><div class="card-body">Grid Item 2</div></div>
+          <div class="card"><div class="card-body">Grid Item 3</div></div>
+        </div>
+      </section>
+
+      <footer class="cluster cluster--center">
+        <span class="text-subtle">Design System v1.1</span>
+        <a href="/">Back to Index</a>
+      </footer>
+    </div>
+  </slot:body>
+<%/ layout.html %>

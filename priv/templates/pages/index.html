@@ -1,9 +1,18 @@
-<% page.html %>
-<slot:head>
-    <title>Welcome</title>
-</slot:head>
-<slot:main>
-    <h1>Welcome</h1>
-    <p>Hello real world!</p>
-</slot:main>
-<%/ page.html %>
+<% layout.html %>
+  <slot:title>Welcome</slot:title>
+  <slot:body>
+    <div class="shell stack">
+      <header>
+        <h1>Webserver Index</h1>
+        <p class="text-subtle">A high-performance Elixir template server.</p>
+      </header>
+
+      <section class="card">
+        <div class="card-body">
+          <p>The server is running and templates are being served with hot reloading enabled.</p>
+          <a href="/admin/design-system" class="btn btn--outline">View Design System</a>
+        </div>
+      </section>
+    </div>
+  </slot:body>
+<%/ layout.html %>

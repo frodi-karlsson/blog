@@ -8,8 +8,8 @@ defmodule Webserver.Router do
   use Plug.Router
   import Plug.Conn
 
+  alias Webserver.AdminRouter
   alias Webserver.Server
-  alias Webserver.TemplateServer.Cache
 
   plug(Plug.RequestId)
   plug(Plug.Logger)
@@ -28,19 +28,9 @@ defmodule Webserver.Router do
     json(conn, 200, %{status: "ok"})
   end
 
-  get "/admin/cache/stats" do
-    stats = Cache.stats()
-    json(conn, 200, stats)
-  end
-
   get("/live-reload", to: Webserver.LiveReload)
 
-  post "/admin/cache/refresh" do
-    case Cache.force_refresh() do
-      :ok -> json(conn, 200, %{status: "cache refreshed"})
-      {:error, reason} -> json(conn, 500, %{error: inspect(reason)})
-    end
-  end
+  forward("/admin", to: AdminRouter)
 
   forward("/", to: Server)
 

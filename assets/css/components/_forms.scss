@@ -1,0 +1,38 @@
+@use "../base/variables" as vars;
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-2;
+
+  label {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: vars.$text-main;
+  }
+
+  .input {
+    background-color: vars.$input-bg;
+    color: vars.$input-text;
+    padding: vars.$space-2 vars.$space-3;
+    border-radius: vars.$radius-base;
+    border: 1px solid vars.$input-border;
+    font-family: inherit;
+    transition: border-color 0.2s, box-shadow 0.2s;
+
+    &:focus {
+      outline: none;
+      border-color: vars.$input-focus-border;
+      box-shadow: 0 0 0 3px rgba(vars.$primary, 0.15);
+    }
+
+    &::placeholder {
+      color: vars.$text-subtle;
+    }
+  }
+
+  .help-text {
+    font-size: 0.75rem;
+    color: vars.$text-subtle;
+  }
+}

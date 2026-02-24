@@ -49,11 +49,12 @@ defmodule Webserver.Watcher do
     rel_path = Path.relative_to(path, base_url)
 
     case Path.split(rel_path) do
-      ["pages", filename] ->
+      ["pages" | rest] ->
+        filename = Path.join(rest)
         GenServer.cast(Cache, {:invalidate, filename})
         broadcast_reload(:full)
 
-      ["partials", _filename] ->
+      ["partials" | _] ->
         Cache.force_refresh()
         broadcast_reload(:full)
 

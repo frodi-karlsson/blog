@@ -1,0 +1,42 @@
+@use "../base/variables" as vars;
+
+.card {
+  background: vars.$surface;
+  border: 1px solid vars.$border-light;
+  border-radius: vars.$radius-lg;
+  box-shadow: vars.$shadow-base;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+
+  &-header {
+    padding: vars.$space-4 vars.$space-6;
+    border-bottom: 1px solid vars.$border-light;
+    background: vars.$surface-muted;
+
+    h1, h2, h3 { color: vars.$text-strong; }
+  }
+
+  &-body {
+    padding: vars.$space-6;
+    flex: 1;
+
+    > *:not(:last-child) {
+      margin-bottom: vars.$space-4;
+    }
+  }
+
+  &-footer {
+    padding: vars.$space-4 vars.$space-6;
+    border-top: 1px solid vars.$border-light;
+    display: flex;
+    justify-content: flex-end;
+    gap: vars.$space-3;
+  }
+
+  &--raised {
+    box-shadow: vars.$shadow-raised;
+    transform: translateY(-2px);
+    transition: transform 0.2s ease;
+  }
+}

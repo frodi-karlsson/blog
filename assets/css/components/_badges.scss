@@ -1,0 +1,31 @@
+@use "../base/variables" as vars;
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: vars.$space-1 vars.$space-2;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: vars.$radius-base;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  border: 1px solid transparent;
+
+  &--primary {
+    background: rgba(vars.$primary, 0.1);
+    color: vars.$primary;
+    border-color: rgba(vars.$primary, 0.2);
+  }
+
+  &--secondary {
+    background: rgba(vars.$secondary, 0.1);
+    color: vars.$secondary;
+    border-color: rgba(vars.$secondary, 0.2);
+  }
+
+  &--pill {
+    border-radius: vars.$radius-full;
+    padding-left: vars.$space-3;
+    padding-right: vars.$space-3;
+  }
+}

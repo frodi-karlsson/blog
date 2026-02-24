@@ -1,0 +1,34 @@
+@use "../base/variables" as vars;
+
+.alert {
+  padding: vars.$space-4;
+  border-radius: vars.$radius-base;
+  border: 1px solid transparent;
+  display: flex;
+  gap: vars.$space-3;
+  line-height: 1.4;
+
+  &--info {
+    background: rgba(vars.$info, 0.1);
+    color: vars.$info;
+    border-color: rgba(vars.$info, 0.2);
+  }
+
+  &--success {
+    background: rgba(vars.$success, 0.1);
+    color: vars.$success;
+    border-color: rgba(vars.$success, 0.2);
+  }
+
+  &--danger {
+    background: rgba(vars.$danger, 0.1);
+    color: vars.$danger;
+    border-color: rgba(vars.$danger, 0.2);
+  }
+
+  .alert-title {
+    font-weight: 700;
+    margin-bottom: vars.$space-1;
+    display: block;
+  }
+}

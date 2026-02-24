@@ -1,0 +1,37 @@
+@use "../base/variables" as vars;
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: vars.$space-2 vars.$space-4;
+  font-weight: 600;
+  font-family: inherit;
+  border-radius: vars.$radius-base;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+  gap: vars.$space-2;
+
+  &--primary {
+    background: vars.$primary;
+    color: white;
+    &:hover { background: vars.$primary-hover; }
+  }
+
+  &--outline {
+    background: transparent;
+    border-color: vars.$border-strong;
+    color: vars.$text-main;
+    &:hover {
+      background: vars.$surface-muted;
+      border-color: vars.$primary;
+    }
+  }
+
+  &--ghost {
+    background: transparent;
+    color: vars.$text-subtle;
+    &:hover { background: vars.$surface-muted; color: vars.$text-strong; }
+  }
+}

@@ -1,8 +1,10 @@
-body {
-  background-color: #333;
-  font-family: sans-serif;
-
-  h1 {
-    color: #f0f0f0;
-  }
-}
+@use "base/variables" as vars;
+@use "base/reset";
+@use "layout/patterns";
+@use "layout/showcase";
+@use "components/cards";
+@use "components/buttons";
+@use "components/forms";
+@use "components/badges";
+@use "components/alerts";
+@use "components/prose";

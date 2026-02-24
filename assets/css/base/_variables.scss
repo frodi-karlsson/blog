@@ -1,0 +1,66 @@
+// --- Primitive Palette ---
+$palette-stone-50: #fafaf9;
+$palette-stone-100: #f5f5f4;
+$palette-stone-200: #e7e5e4;
+$palette-stone-300: #d6d3d1;
+$palette-stone-400: #a8a29e;
+$palette-stone-500: #78716c;
+$palette-stone-600: #57534e;
+$palette-stone-700: #44403c;
+$palette-stone-800: #292524;
+$palette-stone-900: #1c1917;
+$palette-stone-950: #110f0e;
+
+$palette-orange-50: #fff7ed;
+$palette-orange-100: #ffedd5;
+$palette-orange-200: #fed7aa;
+$palette-orange-300: #fdba74;
+$palette-orange-400: #fb923c;
+$palette-orange-500: #f97316;
+$palette-orange-600: #ea580c;
+
+$palette-green-400: #4ade80;
+$palette-red-400: #f87171;
+$palette-blue-400: #38bdf8;
+
+// --- Semantic Tokens ---
+$primary: $palette-orange-400;
+$primary-hover: $palette-orange-500;
+$secondary: $palette-stone-400;
+$success: $palette-green-400;
+$danger: $palette-red-400;
+$info: $palette-blue-400;
+
+$bg-app: $palette-stone-950;
+$surface: $palette-stone-900;
+$surface-muted: $palette-stone-800;
+
+$text-strong: $palette-stone-50;
+$text-main: $palette-stone-300;
+$text-subtle: $palette-stone-400;
+
+$border-light: $palette-stone-800;
+$border-strong: $palette-stone-700;
+
+$input-bg: $palette-stone-900;
+$input-border: $palette-stone-700;
+$input-text: $palette-stone-50;
+$input-focus-border: $palette-orange-400;
+
+$font-main: 'Inter', system-ui, sans-serif;
+$font-mono: 'JetBrains Mono', monospace;
+
+$space-1: 0.25rem;
+$space-2: 0.5rem;
+$space-3: 0.75rem;
+$space-4: 1rem;
+$space-6: 1.5rem;
+$space-8: 2rem;
+$space-12: 3rem;
+
+$radius-base: 0.5rem;
+$radius-lg: 0.75rem;
+$radius-full: 9999px;
+
+$shadow-base: 0 4px 6px -1px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.5);
+$shadow-raised: 0 20px 25px -5px rgb(0 0 0 / 0.7), 0 8px 10px -6px rgb(0 0 0 / 0.7);

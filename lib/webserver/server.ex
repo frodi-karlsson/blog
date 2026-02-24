@@ -74,9 +74,13 @@ defmodule Webserver.Server do
   defp request_path(%Plug.Conn{request_path: "/"}), do: "index.html"
 
   defp request_path(%Plug.Conn{request_path: path}) do
-    path
-    |> String.trim_leading("/")
-    |> Kernel.<>(".html")
+    path = String.trim_leading(path, "/")
+
+    if String.ends_with?(path, "/") or path == "" do
+      path <> "index.html"
+    else
+      path <> ".html"
+    end
   end
 
   defp error_html(code, title, message) do

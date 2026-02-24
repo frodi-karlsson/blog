@@ -1,0 +1,29 @@
+@use "../base/variables" as vars;
+
+.shell {
+  max-width: 1024px;
+  margin: 0 auto;
+  padding: vars.$space-8 vars.$space-4;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-6;
+
+  &--tight { gap: vars.$space-3; }
+  &--loose { gap: vars.$space-12; }
+}
+
+.cluster {
+  display: flex;
+  flex-wrap: wrap;
+  gap: vars.$space-4;
+  align-items: center;
+}
+
+.grid {
+  display: grid;
+  gap: vars.$space-6;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
