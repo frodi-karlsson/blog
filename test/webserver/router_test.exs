@@ -51,6 +51,14 @@ defmodule Webserver.RouterTest do
     end
   end
 
+  describe "Directory index resolution" do
+    test "GET /blog resolves to blog/index.html" do
+      conn = call(:get, "/blog")
+      assert conn.status == 200
+      assert conn.resp_headers |> List.keyfind("content-type", 0) |> elem(1) =~ "text/html"
+    end
+  end
+
   describe "HEAD requests" do
     test "HEAD / returns 200 with empty body" do
       conn = call(:head, "/")

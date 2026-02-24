@@ -1,0 +1,18 @@
+[
+  {
+    "id": "index",
+    "title": "Home",
+    "path": "/"
+  },
+  {
+    "id": "blog/index",
+    "title": "Blog",
+    "path": "/blog"
+  },
+  {
+    "id": "admin/design-system",
+    "title": "Design System",
+    "path": "/admin/design-system",
+    "noindex": true
+  }
+]

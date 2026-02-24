@@ -58,7 +58,7 @@ defmodule Webserver.ParserTest do
         """,
         partials: %{},
         base_url: "/priv/templates",
-        output: {:error, {:ref_not_found, " missing.html "}}
+        output: {:error, {:ref_not_found, "missing.html"}}
       },
       %{
         name: "render partial with slot",

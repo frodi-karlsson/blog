@@ -1,0 +1,10 @@
+<% layout.html %>
+  <slot:title>Blog</slot:title>
+  <slot:body>
+    <% blog_index.html %>
+      <slot:items>
+        <% generated_blog_items.html %/>
+      </slot:items>
+    <%/ blog_index.html %>
+  </slot:body>
+<%/ layout.html %>

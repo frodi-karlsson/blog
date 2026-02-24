@@ -23,11 +23,11 @@ defmodule Webserver.TemplateServer.Cache do
     )
   end
 
-  @spec get_page(String.t()) :: {:ok, String.t()} | {:error, atom() | {atom(), any()}}
+  @spec get_page(String.t()) :: {:ok, String.t()} | {:error, any()}
   def get_page(path) when is_binary(path), do: get_page(__MODULE__, path)
 
   @spec get_page(atom() | pid(), String.t()) ::
-          {:ok, String.t()} | {:error, atom() | {atom(), any()}}
+          {:ok, String.t()} | {:error, any()}
   def get_page(server, path) do
     table = table_for(server)
 
@@ -57,6 +57,16 @@ defmodule Webserver.TemplateServer.Cache do
     }
   end
 
+  @spec get_sitemap(atom() | pid()) :: [map()]
+  def get_sitemap(server \\ __MODULE__) do
+    table = table_for(server)
+
+    case :ets.lookup(table, :page_registry) do
+      [{_, pages}] -> Enum.reject(pages, &Map.get(&1, "noindex", false))
+      _ -> []
+    end
+  end
+
   @spec force_refresh(atom() | pid()) :: :ok | {:error, term()}
   def force_refresh(server \\ __MODULE__), do: GenServer.call(server, :force_refresh)
 
@@ -64,7 +74,7 @@ defmodule Webserver.TemplateServer.Cache do
     [{:config, {_base_url, interval, _reader}}] = :ets.lookup(table, :config)
     now = System.system_time(:millisecond)
 
-    if interval > 0 and now - entry.last_checked_at >= interval do
+    if interval == 0 or now - entry.last_checked_at >= interval do
       GenServer.call(server, {:revalidate, path, entry, now})
     else
       telemetry_execute([:cache, :hit], %{count: 1}, %{path: path})
@@ -96,13 +106,17 @@ defmodule Webserver.TemplateServer.Cache do
           :ets.insert(table, {{:partial, key}, content})
         end)
 
-        {:ok,
-         %{
-           table: table,
-           base_url: base_url,
-           check_interval: check_interval,
-           reader: reader
-         }}
+        state = %{
+          table: table,
+          base_url: base_url,
+          check_interval: check_interval,
+          reader: reader
+        }
+
+        generate_livereload_partial(state)
+        generate_blog_index(state)
+        generate_page_registry(state)
+        {:ok, state}
 
       {:error, reason} ->
         {:stop, reason}
@@ -112,6 +126,18 @@ defmodule Webserver.TemplateServer.Cache do
   @impl true
   def handle_cast({:invalidate, filename}, state) do
     :ets.delete(state.table, {:page, filename})
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_cast(:refresh_blog_index, state) do
+    generate_blog_index(state)
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_cast(:refresh_page_registry, state) do
+    generate_page_registry(state)
     {:noreply, state}
   end
 
@@ -161,6 +187,9 @@ defmodule Webserver.TemplateServer.Cache do
           :ets.insert(state.table, {{:partial, key}, content})
         end)
 
+        generate_livereload_partial(state)
+        generate_blog_index(state)
+        generate_page_registry(state)
         {:reply, :ok, state}
 
       {:error, reason} ->
@@ -226,6 +255,75 @@ defmodule Webserver.TemplateServer.Cache do
       _ ->
         :ets.delete(state.table, {:page, path})
         {:reply, {:error, :not_found}, state}
+    end
+  end
+
+  defp generate_livereload_partial(state) do
+    script =
+      if Application.get_env(:webserver, :live_reload) do
+        ~S|<script src="/static/js/livereload.js"></script>|
+      else
+        ""
+      end
+
+    :ets.insert(state.table, {{:partial, "partials/generated_livereload_script.html"}, script})
+  end
+
+  defp generate_blog_index(state) do
+    partial_key = "partials/generated_blog_items.html"
+
+    rendered_items =
+      case state.reader.read_manifest(state.base_url) do
+        {:ok, json} ->
+          posts = Jason.decode!(json)
+          item_partial = get_partial(state.table, "partials/blog_index_item.html")
+          Enum.map_join(posts, "\n", &render_if_exists(&1, item_partial, state))
+
+        _ ->
+          ""
+      end
+
+    :ets.insert(state.table, {{:partial, partial_key}, rendered_items})
+  end
+
+  defp generate_page_registry(state) do
+    pages =
+      case state.reader.read_pages_manifest(state.base_url) do
+        {:ok, json} -> Jason.decode!(json)
+        _ -> []
+      end
+
+    valid_pages = Enum.filter(pages, &page_exists?(&1, state))
+    :ets.insert(state.table, {:page_registry, valid_pages})
+  end
+
+  defp page_exists?(%{"id" => id}, state) do
+    case state.reader.read_page(state.base_url, "#{id}.html") do
+      {:ok, _} -> true
+      _ -> false
+    end
+  end
+
+  defp render_if_exists(%{"id" => id} = post, partial, state) do
+    case state.reader.read_page(state.base_url, "blog/#{id}.html") do
+      {:ok, _} -> render_item(partial, post)
+      _ -> ""
+    end
+  end
+
+  defp render_item(partial, post) do
+    partial
+    |> String.replace("{{category}}", post["category"] || "")
+    |> String.replace("{{date}}", post["date"] || "")
+    |> String.replace("{{url}}", "/blog/#{post["id"]}")
+    |> String.replace("{{title}}", post["title"] || "")
+    |> String.replace("{{summary}}", post["summary"] || "")
+  end
+
+  defp get_partial(table, key) do
+    case :ets.lookup(table, {:partial, key}) do
+      [{_, content}] -> content
+      _ -> ""
     end
   end
 

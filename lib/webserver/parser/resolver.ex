@@ -8,10 +8,8 @@ defmodule Webserver.Parser.Resolver do
 
   @spec resolve_partial_reference(String.t(), ParseInput.t()) :: String.t() | nil
   def resolve_partial_reference(string, %ParseInput{} = parse_input) do
-    case resolve_path(["partials", String.trim(string)], parse_input.base_url) do
-      {:ok, key} -> Map.get(parse_input.partials, key)
-      :error -> nil
-    end
+    key = Path.join("partials", String.trim(string))
+    Map.get(parse_input.partials, key)
   end
 
   @spec resolve_page(String.t(), String.t()) :: {:ok, String.t()} | {:error, :not_found}

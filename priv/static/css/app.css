@@ -37,7 +37,12 @@ a:hover {
 .shell {
   max-width: 1024px;
   margin: 0 auto;
-  padding: 2rem 1rem;
+  padding: 2rem 1.5rem;
+}
+@media (min-width: 768px) {
+  .shell {
+    padding: 3rem 2rem;
+  }
 }
 
 .stack {
@@ -57,6 +62,9 @@ a:hover {
   flex-wrap: wrap;
   gap: 1rem;
   align-items: center;
+}
+.cluster--center {
+  justify-content: center;
 }
 
 .grid {

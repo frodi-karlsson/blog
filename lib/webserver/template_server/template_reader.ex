@@ -23,4 +23,10 @@ defmodule Webserver.TemplateServer.TemplateReader do
   @doc "Reads the raw content of a single partial file by filename."
   @callback read_partial(base_url :: String.t(), filename :: String.t()) ::
               {:ok, String.t()} | {:error, term()}
+
+  @doc "Reads the blog manifest (JSON)."
+  @callback read_manifest(base_url :: String.t()) :: {:ok, String.t()} | {:error, term()}
+
+  @doc "Reads the pages manifest (JSON)."
+  @callback read_pages_manifest(base_url :: String.t()) :: {:ok, String.t()} | {:error, term()}
 end

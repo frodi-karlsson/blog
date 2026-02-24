@@ -1,18 +1,6 @@
 defmodule Webserver.Parser do
   @moduledoc """
   Parses the custom HTML templating language, returning fully rendered HTML.
-
-  Supports two syntaxes:
-
-  - Self-closing partials: `<% partial.html %/>`
-  - Slotted partials with named slots:
-    ```
-    <% layout.html %>
-      <slot:name>content</slot:name>
-    <%/ layout.html %>
-    ```
-
-  Returns `{:ok, html}` or `{:error, reason}`.
   """
 
   alias Webserver.Parser.{ParseInput, Resolver}
@@ -46,41 +34,10 @@ defmodule Webserver.Parser do
         error -> error
       end
 
-    result =
-      case result do
-        {:ok, html} ->
-          if Application.get_env(:webserver, :inject_assets) do
-            {:ok, inject_assets(html)}
-          else
-            {:ok, html}
-          end
-
-        error ->
-          error
-      end
-
     duration = System.monotonic_time() - start_time
     :telemetry.execute([:webserver, :parser, :stop], %{duration: duration}, metadata)
 
     result
-  end
-
-  defp inject_assets(html) do
-    assets =
-      if Application.get_env(:webserver, :live_reload) do
-        """
-        <link rel="stylesheet" href="/static/css/app.css">
-        <script src="/static/js/livereload.js"></script>
-        </head>
-        """
-      else
-        """
-        <link rel="stylesheet" href="/static/css/app.css">
-        </head>
-        """
-      end
-
-    String.replace(html, "</head>", assets)
   end
 
   defp process_slots(file, parse_input) do
@@ -143,7 +100,7 @@ defmodule Webserver.Parser do
       |> Regex.scan(content, return: :index)
       |> Enum.reduce_while({0, ""}, fn
         [{start, len}, {name_start, name_len}], {cursor, acc} ->
-          ref = binary_part(content, name_start, name_len)
+          ref = content |> binary_part(name_start, name_len) |> String.trim()
 
           case Resolver.resolve_partial_reference(ref, parse_input) do
             nil ->

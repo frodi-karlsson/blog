@@ -28,17 +28,28 @@ defmodule Webserver.TemplateServer.TemplateReader.Sandbox do
 
   @impl true
   def read_page(_base_url, path) do
-    if String.ends_with?(path, "index.html") do
-      {:ok,
-       ~S"""
-       <html>
-         <% head.html %/>
-         <body>
-         </body>
-       </html>
-       """}
-    else
-      {:error, :not_found}
+    case path do
+      "index.html" ->
+        {:ok,
+         ~S"""
+         <html>
+           <% head.html %/>
+           <body>
+           </body>
+         </html>
+         """}
+
+      "blog/index.html" ->
+        {:ok, "<html><body>Blog Index</body></html>"}
+
+      "blog/first-post.html" ->
+        {:ok, "<html><body>First Post</body></html>"}
+
+      "blog.html" ->
+        {:error, :eisdir}
+
+      _ ->
+        {:error, :not_found}
     end
   end
 
@@ -47,4 +58,30 @@ defmodule Webserver.TemplateServer.TemplateReader.Sandbox do
 
   def read_partial(_base_url, filename) when is_binary(filename),
     do: {:ok, "<partial>#{filename}</partial>"}
+
+  @impl true
+  def read_manifest(_base_url) do
+    {:ok,
+     Jason.encode!([
+       %{
+         "id" => "first-post",
+         "title" => "Sandbox Post",
+         "date" => "Feb 24, 2024",
+         "category" => "Test",
+         "summary" => "Summary"
+       }
+     ])}
+  end
+
+  @impl true
+  def read_pages_manifest(_base_url) do
+    {:ok,
+     Jason.encode!([
+       %{
+         "id" => "index",
+         "title" => "Home",
+         "path" => "/"
+       }
+     ])}
+  end
 end

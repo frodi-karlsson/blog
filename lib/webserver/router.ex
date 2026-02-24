@@ -10,6 +10,7 @@ defmodule Webserver.Router do
 
   alias Webserver.AdminRouter
   alias Webserver.Server
+  alias Webserver.Sitemap
 
   plug(Plug.RequestId)
   plug(Plug.Logger)
@@ -29,6 +30,8 @@ defmodule Webserver.Router do
   end
 
   get("/live-reload", to: Webserver.LiveReload)
+
+  get("/sitemap.xml", to: Sitemap)
 
   forward("/admin", to: AdminRouter)
 

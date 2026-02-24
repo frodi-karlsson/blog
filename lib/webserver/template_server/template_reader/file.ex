@@ -54,6 +54,16 @@ defmodule Webserver.TemplateServer.TemplateReader.File do
     end
   end
 
+  @impl true
+  def read_manifest(base_url) do
+    File.read(Path.join(base_url, "blog.json"))
+  end
+
+  @impl true
+  def read_pages_manifest(base_url) do
+    File.read(Path.join(base_url, "pages.json"))
+  end
+
   defp read_partial_files(dir, files) do
     Enum.reduce(files, %{}, fn file, acc ->
       full = Path.join(dir, file)

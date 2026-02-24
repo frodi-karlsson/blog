@@ -11,6 +11,8 @@ defmodule Webserver.Server do
 
   alias Webserver.TemplateServer.Cache
 
+  require Logger
+
   @impl true
   @spec init(keyword()) :: keyword()
   def init(opts), do: opts
@@ -24,12 +26,7 @@ defmodule Webserver.Server do
   def call(conn, _opts) do
     path = request_path(conn)
 
-    result =
-      try do
-        Cache.get_page(path)
-      catch
-        :exit, _ -> {:error, :cache_unavailable}
-      end
+    result = try_get_page(path)
 
     case result do
       {:ok, parsed} ->
@@ -57,7 +54,9 @@ defmodule Webserver.Server do
           )
         )
 
-      {:error, _reason} ->
+      {:error, reason} ->
+        Logger.error(%{event: "request_failed", path: request_path(conn), reason: reason})
+
         conn
         |> put_resp_content_type("text/html")
         |> send_resp(
@@ -68,6 +67,32 @@ defmodule Webserver.Server do
             "An error occurred while processing your request."
           )
         )
+    end
+  end
+
+  defp try_get_page(path) do
+    case Cache.get_page(path) do
+      {:ok, parsed} ->
+        {:ok, parsed}
+
+      {:error, reason} when reason in [:not_found, :eisdir] ->
+        maybe_try_index(path)
+
+      error ->
+        error
+    end
+  rescue
+    _ -> {:error, :cache_unavailable}
+  catch
+    :exit, _ -> {:error, :cache_unavailable}
+  end
+
+  defp maybe_try_index(path) do
+    if String.ends_with?(path, "index.html") do
+      {:error, :not_found}
+    else
+      alt_path = path |> String.replace_trailing(".html", "") |> Path.join("index.html")
+      Cache.get_page(alt_path)
     end
   end
 
@@ -95,23 +120,24 @@ defmodule Webserver.Server do
             * { box-sizing: border-box; margin: 0; padding: 0; }
             body {
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-                background: #f5f5f5;
-                color: #333;
+                background: #110f0e;
+                color: #fafaf9;
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 min-height: 100vh;
             }
             .container {
-                background: white;
+                background: #1c1917;
                 padding: 2rem;
                 border-radius: 8px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                box-shadow: 0 4px 10px rgba(0,0,0,0.3);
                 text-align: center;
                 max-width: 500px;
+                border: 1px solid #292524;
             }
             h1 { font-size: 1.5rem; margin-bottom: 1rem; color: #{error_color(code)}; }
-            p { color: #666; line-height: 1.6; }
+            p { color: #a8a29e; line-height: 1.6; }
         </style>
     </head>
     <body>
@@ -124,7 +150,7 @@ defmodule Webserver.Server do
     """
   end
 
-  defp error_color(404), do: "#e67e22"
-  defp error_color(503), do: "#3498db"
-  defp error_color(_), do: "#e74c3c"
+  defp error_color(404), do: "#fb923c"
+  defp error_color(503), do: "#38bdf8"
+  defp error_color(_), do: "#f87171"
 end

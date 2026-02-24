@@ -3,7 +3,11 @@
 .shell {
   max-width: 1024px;
   margin: 0 auto;
-  padding: vars.$space-8 vars.$space-4;
+  padding: vars.$space-8 vars.$space-6;
+
+  @media (min-width: 768px) {
+    padding: vars.$space-12 vars.$space-8;
+  }
 }
 
 .stack {
@@ -11,8 +15,12 @@
   flex-direction: column;
   gap: vars.$space-6;
 
-  &--tight { gap: vars.$space-3; }
-  &--loose { gap: vars.$space-12; }
+  &--tight {
+    gap: vars.$space-3;
+  }
+  &--loose {
+    gap: vars.$space-12;
+  }
 }
 
 .cluster {
@@ -20,6 +28,10 @@
   flex-wrap: wrap;
   gap: vars.$space-4;
   align-items: center;
+
+  &--center {
+    justify-content: center;
+  }
 }
 
 .grid {

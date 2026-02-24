@@ -1,0 +1,46 @@
+<% layout.html %>
+  <slot:title>Building a Reactive Webserver</slot:title>
+  <slot:body>
+    <% blog_post.html %>
+      <slot:category>Elixir</slot:category>
+      <slot:date>Feb 24, 2026</slot:date>
+      <slot:title>Building a Reactive Webserver</slot:title>
+      <slot:content>
+        <p>This blog is hosted on a custom web server built with Elixir. I created this system to learn the language and serve templates efficiently without relying on large frameworks. The article below explains how it works.</p>
+
+        <p>I built this webserver over a few days while I was stuck in bed. I wanted a lightweight tool that did not require many dependencies just to render HTML.</p>
+
+        <p>Elixir does not have <a href="https://journal.stuffwithstuff.com/2015/02/01/what-color-is-your-function/">colored functions</a>. You do not have to worry about whether a function is async or sync. The <a href="https://www.erlang.org/blog/a-brief-beam-primer/">BEAM</a> handles all scheduling automatically. It feels like Erlang has your back because the platform was designed for this specific purpose.</p>
+        
+        <h3>Concurrency that makes sense</h3>
+        <p>You spawn processes instead of worrying about threads or async loops. Every request in this server is its own process. If one request hits an edge case and crashes, it does not affect the cache or other users. The <a href="https://hexdocs.pm/elixir/Supervisor.html">supervisor</a> handles the recovery automatically.</p>
+        
+        <pre><code class="language-elixir">def start(_type, _args) do
+  children = [
+    Webserver.TemplateServer.Cache,
+    {Bandit, plug: Webserver.Router}
+  ]
+  Supervisor.start_link(children, strategy: :one_for_one)
+end</code></pre>
+
+        <h3>A Custom Templating Language</h3>
+        <p>I built a custom templating system for this project. It supports self-closing partials and named slots. The parser uses recursive regex processing to handle nested components. This allows for clean, component-based HTML without a complex build step.</p>
+
+        <pre><code class="language-html">&lt;% layout.html %&gt;
+  &lt;slot:title&gt;My Page&lt;/slot:title&gt;
+  &lt;slot:body&gt;
+    &lt;% header.html %/&gt;
+    &lt;p&gt;Content goes here.&lt;/p&gt;
+  &lt;/slot:body&gt;
+&lt;%/ layout.html %&gt;</code></pre>
+
+        <h3>Confidence and Type Safety</h3>
+        <p>I prefer languages with static typing. Elixir is dynamic, but the ecosystem provides many tools to manage complexity. Pattern matching and typespecs provide a high level of confidence. You handle expected states explicitly and let the rest fail. The rest of the language makes up for the lack of strict typing. The platform is robust and predictable.</p>
+
+        <p>The caching layer uses <a href="https://hexdocs.pm/elixir/main/ets.html">Erlang Term Storage (ETS)</a>. This is an in-memory database built into the runtime. It allows web server processes to read templates simultaneously. They do not have to wait for a single GenServer process to respond. It is fast and simple. Detailed technical information is available in the <a href="https://www.erlang.org/doc/man/ets.html">official Erlang documentation</a>.</p>
+
+        <p>The pipe operator and immutable data make your code a series of clear transformations. It is clean and logical. The runtime handles the heavy lifting. Honestly, it is the most fun I have had writing code in a long time.</p>
+      </slot:content>
+    <%/ blog_post.html %>
+  </slot:body>
+<%/ layout.html %>
