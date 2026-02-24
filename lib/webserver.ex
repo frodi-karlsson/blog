@@ -11,7 +11,7 @@ defmodule Webserver do
     Supervisor.start_link(
       [
         {DynamicSupervisor, name: Webserver.TemplateServerSupervisor, strategy: :one_for_one},
-        {Bandit, plug: Server, scheme: :http, port: port}
+        {Bandit, plug: Router, scheme: :http, port: port}
       ],
       strategy: :one_for_one
     )
