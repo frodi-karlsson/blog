@@ -24,6 +24,18 @@ defmodule TemplateServer.TemplateReader do
     impl().read_page(base_url, path)
   end
 
+  @doc """
+  Reads a single partial file by filename
+
+  ## Examples
+
+  iex> TemplateServer.TemplateReader.read_partial("/priv/templates", "head.html")
+  {:ok, "<head>...</head>"}
+  """
+  def read_partial(base_url, filename) do
+    impl().read_partial(base_url, filename)
+  end
+
   defp impl do
     Application.get_env(:webserver, :template_reader)
   end
@@ -52,7 +64,7 @@ defmodule TemplateServer.TemplateReader.Sandbox do
   end
 
   def read_page(_base_url, path) do
-    if path == "index.html" do
+    if String.ends_with?(path, "index.html") do
       {:ok,
        ~S"""
        <html>
@@ -64,6 +76,14 @@ defmodule TemplateServer.TemplateReader.Sandbox do
     else
       {:error, {:not_found, path}}
     end
+  end
+
+  def read_partial(_base_url, "head.html") do
+    {:ok, "<head>...</head>"}
+  end
+
+  def read_partial(_base_url, filename) when is_binary(filename) do
+    {:ok, "<partial>#{filename}</partial>"}
   end
 end
 
@@ -110,6 +130,20 @@ defmodule TemplateServer.TemplateReader.File do
           Logger.warning("page_read_failed", path: rel_path, reason: reason)
           {:error, reason}
       end
+    end
+  end
+
+  def read_partial(base_url, filename) do
+    full_path = Path.join([base_url, "partials", filename])
+
+    case File.read(full_path) do
+      {:ok, content} ->
+        Logger.debug(%{event: "partial_reloaded", filename: filename, size: byte_size(content)})
+        {:ok, content}
+
+      {:error, reason} ->
+        Logger.warning("partial_reload_failed", filename: filename, reason: reason)
+        {:error, reason}
     end
   end
 end

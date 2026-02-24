@@ -23,97 +23,22 @@ defmodule Server do
       request_id: conn.assigns[:request_id]
     })
 
-    base_url = Application.get_env(:webserver, :base_url)
+    case TemplateServer.Cache.get_page(path) do
+      {:ok, parsed} ->
+        Logger.info(%{event: "request_completed", path: path, status: 200})
 
-    case Webserver.start_template_server(base_url) do
-      {:ok, template_server} ->
-        Logger.debug(%{event: "template_server_started", pid: inspect(template_server)})
+        conn
+        |> put_resp_content_type("text/html")
+        |> send_resp(200, parsed)
 
-        partials = TemplateServer.get_partials(template_server)
-        GenServer.stop(template_server)
-
-        file_path = path_to_file(path)
-
-        Logger.debug(%{event: "template_loading", path: file_path})
-
-        case parse_for_request(base_url, file_path, partials) do
-          {:ok, parsed} ->
-            Logger.info(%{event: "request_completed", path: path, status: 200})
-
-            conn
-            |> put_resp_content_type("text/html")
-            |> send_resp(200, parsed)
-
-          {:error, {:ref_not_found, _}} ->
-            Logger.info(%{event: "page_not_found", path: file_path})
-
-            conn
-            |> put_resp_content_type("text/html")
-            |> send_resp(
-              404,
-              error_html(404, "Page Not Found", "The requested page could not be found.")
-            )
-
-          {:error, {:missing_slots, slots}} ->
-            Logger.error(%{event: "parse_error", path: file_path, missing_slots: slots})
-
-            conn
-            |> put_resp_content_type("text/html")
-            |> send_resp(
-              500,
-              error_html(
-                500,
-                "Template Error",
-                "Missing required slots: #{Enum.join(slots, ", ")}"
-              )
-            )
-
-          {:error, {:unexpected_slots, slots}} ->
-            Logger.error(%{event: "parse_error", path: file_path, unexpected_slots: slots})
-
-            conn
-            |> put_resp_content_type("text/html")
-            |> send_resp(
-              500,
-              error_html(500, "Template Error", "Unexpected slots: #{Enum.join(slots, ", ")}")
-            )
-
-          {:error, {:not_found, _}} ->
-            Logger.warning("template_not_found", path: file_path)
-
-            conn
-            |> put_resp_content_type("text/html")
-            |> send_resp(
-              404,
-              error_html(404, "Page Not Found", "The requested page could not be found.")
-            )
-
-          {:error, :enoent} ->
-            Logger.warning("template_not_found", path: file_path)
-
-            conn
-            |> put_resp_content_type("text/html")
-            |> send_resp(
-              404,
-              error_html(404, "Page Not Found", "The requested page could not be found.")
-            )
-
-          {:error, reason} ->
-            Logger.error(%{event: "parse_error", path: file_path, reason: reason})
-
-            conn
-            |> put_resp_content_type("text/html")
-            |> send_resp(500, error_html(500, "Server Error", "An internal error occurred."))
-        end
-
-      {:error, reason} ->
-        Logger.error(%{event: "template_server_failed", reason: reason})
+      {:error, :not_found} ->
+        Logger.info(%{event: "page_not_found", path: path})
 
         conn
         |> put_resp_content_type("text/html")
         |> send_resp(
-          500,
-          error_html(500, "Server Error", "Failed to initialize template server.")
+          404,
+          error_html(404, "Page Not Found", "The requested page could not be found.")
         )
     end
   end
@@ -122,25 +47,6 @@ defmodule Server do
     case conn.request_path do
       "/" -> "index.html"
       p -> p |> String.trim_leading("/") |> Kernel.<>(".html")
-    end
-  end
-
-  defp path_to_file("index.html"), do: "index.html"
-  defp path_to_file(path) when is_binary(path), do: path
-
-  defp parse_for_request(base_url, request_path, partials) do
-    with {:ok, file} <- TemplateServer.TemplateReader.read_page(base_url, request_path) do
-      Logger.debug(%{
-        event: "template_parsing",
-        path: request_path,
-        partial_count: map_size(partials)
-      })
-
-      Parser.parse(%Parser.ParseInput{
-        file: file,
-        base_url: base_url,
-        partials: partials
-      })
     end
   end
 
