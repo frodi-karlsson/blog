@@ -85,8 +85,19 @@ jobs:
   infrastructure:
     name: Infrastructure Analysis
     runs-on: ubuntu-latest
+    env:
+      # Provide dummy values to Trivy so it can evaluate the Tofu code correctly
+      TF_VAR_cloudflare_token: "dummy"
+      TF_VAR_cloudflare_zone_id: "dummy"
+      TF_VAR_do_token: "dummy"
+      TF_VAR_do_region: "fra1"
+      TF_VAR_ssh_public_key_path: "id_ed25519.pub"
+      TF_VAR_image_tag: "latest"
     steps:
       - uses: actions/checkout@v4
+
+      - name: Create dummy SSH key for validation
+        run: touch id_ed25519.pub
 
       - name: Setup OpenTofu
         uses: opentofu/setup-opentofu@v1
@@ -106,3 +117,4 @@ jobs:
           scan-ref: 'tofu'
           exit-code: '1'
           severity: 'HIGH,CRITICAL'
+          trivy-config: 'tofu/.trivy.yaml'
