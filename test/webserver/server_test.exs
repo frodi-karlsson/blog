@@ -1,6 +1,8 @@
-defmodule ServerTest do
+defmodule Webserver.ServerTest do
   use ExUnit.Case
-  doctest(Server)
+
+  alias Webserver.Parser
+  alias Webserver.Parser.ParseInput
 
   describe "call" do
     @cases [
@@ -24,16 +26,22 @@ defmodule ServerTest do
         unquoted = unquote(Macro.escape(test_case))
 
         conn = Plug.Test.conn(:get, unquoted.path)
-        conn = Server.call(conn, [])
+        conn = Webserver.Server.call(conn, [])
 
         assert conn.status == unquoted.expected_status
         assert String.contains?(conn.resp_body, unquoted.expected_body)
       end
     end
+
+    test "returns 405 for non-GET methods" do
+      conn = Plug.Test.conn(:post, "/")
+      conn = Webserver.Server.call(conn, [])
+      assert conn.status == 405
+    end
   end
 
   describe "parser error handling" do
-    test "returns 500 for missing slots" do
+    test "returns error for missing slots" do
       partials = %{
         "partials/head.html" => "<head><title>Test</title></head>",
         "partials/page.html" => "<html><head>{{title}}</head><body>{{body}}</body></html>"
@@ -45,15 +53,15 @@ defmodule ServerTest do
       <%/ page.html %>
       """
 
-      {:error, {:missing_slots, ["title"]}} =
-        Parser.parse(%Parser.ParseInput{
-          file: file,
-          base_url: "/test",
-          partials: partials
-        })
+      assert {:error, {:missing_slots, ["title"]}} =
+               Parser.parse(%ParseInput{
+                 file: file,
+                 base_url: "/test",
+                 partials: partials
+               })
     end
 
-    test "returns 500 for unexpected slots" do
+    test "returns error for unexpected slots" do
       partials = %{
         "partials/head.html" => "<head><title>Test</title></head>",
         "partials/page.html" => "<html><head>{{title}}</head><body>{{body}}</body></html>"
@@ -67,12 +75,12 @@ defmodule ServerTest do
       <%/ page.html %>
       """
 
-      {:error, {:unexpected_slots, ["extra"]}} =
-        Parser.parse(%Parser.ParseInput{
-          file: file,
-          base_url: "/test",
-          partials: partials
-        })
+      assert {:error, {:unexpected_slots, ["extra"]}} =
+               Parser.parse(%ParseInput{
+                 file: file,
+                 base_url: "/test",
+                 partials: partials
+               })
     end
   end
 end

@@ -1,13 +1,16 @@
-defmodule ParserResolverTest do
+defmodule Webserver.ParserResolverTest do
   use ExUnit.Case
-  doctest(Parser.Resolver)
+  doctest(Webserver.Parser.Resolver)
+
+  alias Webserver.Parser.ParseInput
+  alias Webserver.Parser.Resolver
 
   describe "resolve_partial_reference" do
     @cases [
       %{
         name: "resolves partial reference with leading space",
         input: " head.html",
-        parse_input: %Parser.ParseInput{
+        parse_input: %ParseInput{
           partials: %{"partials/head.html" => "hello world"},
           base_url: "/priv/templates",
           file: "index.html"
@@ -17,7 +20,7 @@ defmodule ParserResolverTest do
       %{
         name: "returns nil when partial not found",
         input: " missing.html",
-        parse_input: %Parser.ParseInput{
+        parse_input: %ParseInput{
           partials: %{},
           base_url: "",
           file: "index.html"
@@ -27,7 +30,7 @@ defmodule ParserResolverTest do
       %{
         name: "trims whitespace from reference",
         input: "  head.html  ",
-        parse_input: %Parser.ParseInput{
+        parse_input: %ParseInput{
           partials: %{"partials/head.html" => "content"},
           base_url: "/priv/templates",
           file: "index.html"
@@ -40,7 +43,7 @@ defmodule ParserResolverTest do
       test "should #{test_case.name}" do
         unquoted = unquote(Macro.escape(test_case))
 
-        assert Parser.Resolver.resolve_partial_reference(unquoted.input, unquoted.parse_input) ==
+        assert Resolver.resolve_partial_reference(unquoted.input, unquoted.parse_input) ==
                  unquoted.expected
       end
     end
@@ -65,9 +68,7 @@ defmodule ParserResolverTest do
     for test_case <- @cases do
       test "should #{test_case.name}" do
         unquoted = unquote(Macro.escape(test_case))
-
-        assert Parser.Resolver.resolve_page(unquoted.input, unquoted.base_url) ==
-                 unquoted.expected
+        assert Resolver.resolve_page(unquoted.input, unquoted.base_url) == unquoted.expected
       end
     end
   end
@@ -97,9 +98,7 @@ defmodule ParserResolverTest do
     for test_case <- @cases do
       test "should #{test_case.name}" do
         unquoted = unquote(Macro.escape(test_case))
-
-        assert Parser.Resolver.resolve_path(unquoted.rel_paths, unquoted.base_dir) ==
-                 unquoted.expected
+        assert Resolver.resolve_path(unquoted.rel_paths, unquoted.base_dir) == unquoted.expected
       end
     end
   end

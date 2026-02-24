@@ -18,7 +18,7 @@ defmodule Webserver.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger, :wx, :observer],
+      extra_applications: [:logger],
       mod: {Webserver, []}
     ]
   end
@@ -27,6 +27,7 @@ defmodule Webserver.MixProject do
   defp deps do
     [
       {:bandit, "~> 1.0"},
+      {:jason, "~> 1.0"},
       {:plug, "~> 1.0"},
       {:dialyxir, "~> 1.0", runtime: false},
       {:credo, ">= 0.0.0", only: [:dev, :test], runtime: false}

@@ -37,7 +37,7 @@ defmodule Mix.Tasks.Check do
   end
 
   defp mix_dialyzer do
-    {_output, 0} = System.cmd("mix", ["dialyzer", "--no-check"])
+    {_output, 0} = System.cmd("mix", ["dialyzer"])
   end
 
   defp mix_test do

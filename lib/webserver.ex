@@ -1,6 +1,9 @@
 defmodule Webserver do
   @moduledoc """
-  Documentation for `Webserver`.
+  OTP Application entry point. Starts the supervision tree:
+
+    - `Webserver.TemplateServer.Cache` — GenServer cache for parsed templates
+    - `Bandit` — HTTP server using `Webserver.Router` as the Plug handler
   """
 
   use Application
@@ -9,11 +12,11 @@ defmodule Webserver do
     port = Application.fetch_env!(:webserver, :port)
     base_url = Application.fetch_env!(:webserver, :base_url)
     mtime_check_interval = Application.fetch_env!(:webserver, :mtime_check_interval)
+    reader = Application.fetch_env!(:webserver, :template_reader)
 
     children = [
-      {Registry, name: TemplateServer.Registry, keys: :unique},
-      {TemplateServer.Cache, {base_url, mtime_check_interval}},
-      {Bandit, plug: Router, scheme: :http, port: port}
+      {Webserver.TemplateServer.Cache, {base_url, mtime_check_interval, reader}},
+      {Bandit, plug: Webserver.Router, scheme: :http, port: port}
     ]
 
     Supervisor.start_link(children, strategy: :one_for_one)

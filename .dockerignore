@@ -1,0 +1,10 @@
+.git
+.elixir_ls
+_build
+deps
+doc
+test
+*.md
+.formatter.exs
+.credo.exs
+.dialyzer_ignore.exs

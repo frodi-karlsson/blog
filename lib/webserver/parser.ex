@@ -1,27 +1,39 @@
-defmodule Parser do
+defmodule Webserver.Parser do
   @moduledoc """
-  Deals with parsing the templating language and returning valid HTML
+  Parses the custom HTML templating language, returning fully rendered HTML.
+
+  Supports two syntaxes:
+
+  - Self-closing partials: `<% partial.html %/>`
+  - Slotted partials with named slots:
+    ```
+    <% layout.html %>
+      <slot:name>content</slot:name>
+    <%/ layout.html %>
+    ```
+
+  Returns `{:ok, html}` or `{:error, reason}`.
   """
+
+  alias Webserver.Parser.{ParseInput, Resolver}
+
+  @type parse_error ::
+          {:ref_not_found, String.t()}
+          | {:missing_slots, [String.t()]}
+          | {:unexpected_slots, [String.t()]}
+
+  @type parse_result :: {:ok, String.t()} | {:error, parse_error()}
 
   @self_closing_regex ~r|<%(.*?)%/>|
   @slot_regex ~r|<%\s*(.*?)\s*%>(.*?)<%/\s*\1\s*%>|s
   @named_slot_regex ~r|<slot:([a-z]+)>(.*?)</slot:\1>|s
   @slot_placeholder_regex ~r|\{\{([a-z]+)\}\}|
 
-  @doc """
-  Interpolates any used templates.
-  Supports two syntaxes:
-  - Self-closing: <% partial.html %>
-  - With slots: <% partial.html %><slot:name>content</slot:name><%/ partial.html %>
-  Returns {:ok, content} or {:error, reason}
-  """
+  @spec parse(ParseInput.t()) :: parse_result()
   def parse(parse_input) do
     case process_slots(parse_input.file, parse_input) do
-      {:ok, processed_file} ->
-        process_self_closing(processed_file, parse_input)
-
-      error ->
-        error
+      {:ok, processed_file} -> process_self_closing(processed_file, parse_input)
+      error -> error
     end
   end
 
@@ -56,7 +68,7 @@ defmodule Parser do
   defp render_partial(name, raw_content, parse_input) do
     partial_name = String.trim(name)
 
-    case Parser.Resolver.resolve_partial_reference(partial_name, parse_input) do
+    case Resolver.resolve_partial_reference(partial_name, parse_input) do
       partial when is_binary(partial) ->
         render_partial_with_slots(partial, raw_content, parse_input)
 
@@ -81,15 +93,15 @@ defmodule Parser do
 
   defp process_self_closing(content, parse_input) do
     result =
-      Regex.scan(@self_closing_regex, content, return: :index)
+      @self_closing_regex
+      |> Regex.scan(content, return: :index)
       |> Enum.reduce_while({0, ""}, fn
         [{start, len}, {name_start, name_len}], {cursor, acc} ->
-          case Parser.Resolver.resolve_partial_reference(
-                 binary_part(content, name_start, name_len),
-                 parse_input
-               ) do
+          ref = binary_part(content, name_start, name_len)
+
+          case Resolver.resolve_partial_reference(ref, parse_input) do
             nil ->
-              {:halt, {:error, {:ref_not_found, binary_part(content, name_start, name_len)}}}
+              {:halt, {:error, {:ref_not_found, ref}}}
 
             str when is_binary(str) ->
               {:cont, {start + len, acc <> binary_part(content, cursor, start - cursor) <> str}}
@@ -100,8 +112,8 @@ defmodule Parser do
       {:error, _} = error ->
         error
 
-      {cursor, result} ->
-        {:ok, result <> binary_part(content, cursor, byte_size(content) - cursor)}
+      {cursor, acc} ->
+        {:ok, acc <> binary_part(content, cursor, byte_size(content) - cursor)}
     end
   end
 
@@ -129,17 +141,18 @@ defmodule Parser do
   end
 
   defp extract_expected_slots(partial) do
-    Regex.scan(@slot_placeholder_regex, partial)
+    @slot_placeholder_regex
+    |> Regex.scan(partial)
     |> Enum.map(fn [_, name] -> name end)
     |> Enum.uniq()
   end
 
   defp validate_slots(expected, slot_map) do
-    provided = Map.keys(slot_map) |> MapSet.new()
+    provided = slot_map |> Map.keys() |> MapSet.new()
     expected_set = MapSet.new(expected)
 
-    missing = MapSet.difference(expected_set, provided) |> MapSet.to_list()
-    unexpected = MapSet.difference(provided, expected_set) |> MapSet.to_list()
+    missing = expected_set |> MapSet.difference(provided) |> MapSet.to_list()
+    unexpected = provided |> MapSet.difference(expected_set) |> MapSet.to_list()
 
     cond do
       expected_set == provided -> :ok

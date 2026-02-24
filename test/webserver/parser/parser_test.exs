@@ -1,5 +1,8 @@
-defmodule ParserTest do
+defmodule Webserver.ParserTest do
   use ExUnit.Case
+
+  alias Webserver.Parser
+  alias Webserver.Parser.ParseInput
 
   describe "parse" do
     @cases [
@@ -57,7 +60,6 @@ defmodule ParserTest do
         base_url: "/priv/templates",
         output: {:error, {:ref_not_found, " missing.html "}}
       },
-      # Old tests - now using named slot syntax
       %{
         name: "render partial with slot",
         input:
@@ -109,7 +111,6 @@ defmodule ParserTest do
         base_url: "/priv/templates",
         output: {:ok, "<html><head/><div>Hello</div></html>"}
       },
-      # Named slots tests
       %{
         name: "render named slot",
         input: "<html><% card.html %><slot:body>Content</slot:body><%/ card.html %></html>",
@@ -176,7 +177,7 @@ defmodule ParserTest do
         unquoted_test_case = unquote(Macro.escape(test_case))
 
         result =
-          Parser.parse(%Parser.ParseInput{
+          Parser.parse(%ParseInput{
             file: unquoted_test_case.input,
             partials: unquoted_test_case.partials,
             base_url: unquoted_test_case.base_url
@@ -187,13 +188,7 @@ defmodule ParserTest do
     end
 
     test "should handle empty file" do
-      result =
-        Parser.parse(%Parser.ParseInput{
-          file: "",
-          partials: %{},
-          base_url: "/priv/templates"
-        })
-
+      result = Parser.parse(%ParseInput{file: "", partials: %{}, base_url: "/priv/templates"})
       assert result == {:ok, ""}
     end
   end

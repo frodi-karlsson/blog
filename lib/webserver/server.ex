@@ -1,39 +1,43 @@
-defmodule Server do
+defmodule Webserver.Server do
   @moduledoc """
-  A web server that returns parsed templates
+  Plug that resolves request paths to parsed HTML templates via the cache.
+  Returns 200 on success, 404 for missing pages, 405 for non-GET methods,
+  503 if the cache is unavailable, and 500 for all other errors.
   """
-  @behaviour Plug
-  import Plug.Conn
-  require Logger
 
-  def init(opts) do
-    opts
+  @behaviour Plug
+
+  import Plug.Conn
+
+  alias Webserver.TemplateServer.Cache
+
+  @impl true
+  @spec init(keyword()) :: keyword()
+  def init(opts), do: opts
+
+  @impl true
+  @spec call(Plug.Conn.t(), keyword()) :: Plug.Conn.t()
+  def call(%Plug.Conn{method: method} = conn, _opts) when method not in ["GET", "HEAD"] do
+    send_resp(conn, 405, "Method Not Allowed")
   end
 
-  @doc """
-  Responds with a 200 + html file, or error code + plain text
-  """
   def call(conn, _opts) do
     path = request_path(conn)
 
-    Logger.info(%{
-      event: "request_received",
-      method: conn.method,
-      path: path,
-      request_id: conn.assigns[:request_id]
-    })
+    result =
+      try do
+        Cache.get_page(path)
+      catch
+        :exit, _ -> {:error, :cache_unavailable}
+      end
 
-    case TemplateServer.Cache.get_page(path) do
+    case result do
       {:ok, parsed} ->
-        Logger.info(%{event: "request_completed", path: path, status: 200})
-
         conn
         |> put_resp_content_type("text/html")
         |> send_resp(200, parsed)
 
       {:error, :not_found} ->
-        Logger.info(%{event: "page_not_found", path: path})
-
         conn
         |> put_resp_content_type("text/html")
         |> send_resp(
@@ -41,9 +45,19 @@ defmodule Server do
           error_html(404, "Page Not Found", "The requested page could not be found.")
         )
 
-      {:error, _reason} ->
-        Logger.error(%{event: "server_error", path: path})
+      {:error, :cache_unavailable} ->
+        conn
+        |> put_resp_content_type("text/html")
+        |> send_resp(
+          503,
+          error_html(
+            503,
+            "Service Unavailable",
+            "The server is temporarily unavailable. Please try again shortly."
+          )
+        )
 
+      {:error, _reason} ->
         conn
         |> put_resp_content_type("text/html")
         |> send_resp(
@@ -57,11 +71,12 @@ defmodule Server do
     end
   end
 
-  defp request_path(conn) do
-    case conn.request_path do
-      "/" -> "index.html"
-      p -> p |> String.trim_leading("/") |> Kernel.<>(".html")
-    end
+  defp request_path(%Plug.Conn{request_path: "/"}), do: "index.html"
+
+  defp request_path(%Plug.Conn{request_path: path}) do
+    path
+    |> String.trim_leading("/")
+    |> Kernel.<>(".html")
   end
 
   defp error_html(code, title, message) do
@@ -93,7 +108,6 @@ defmodule Server do
             }
             h1 { font-size: 1.5rem; margin-bottom: 1rem; color: #{error_color(code)}; }
             p { color: #666; line-height: 1.6; }
-            code { background: #f0f0f0; padding: 0.2rem 0.4rem; border-radius: 4px; }
         </style>
     </head>
     <body>
@@ -107,5 +121,6 @@ defmodule Server do
   end
 
   defp error_color(404), do: "#e67e22"
+  defp error_color(503), do: "#3498db"
   defp error_color(_), do: "#e74c3c"
 end
