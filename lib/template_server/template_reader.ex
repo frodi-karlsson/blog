@@ -68,24 +68,31 @@ defmodule TemplateServer.TemplateReader.Sandbox do
 end
 
 defmodule TemplateServer.TemplateReader.File do
+  require Logger
+
   def get_partials(base_url) do
     dir = Path.join(base_url, "partials")
 
     with {:ok, files} <- File.ls(dir) do
+      Logger.debug(%{event: "reading_partials_dir", path: dir, file_count: length(files)})
+
       partials =
         Enum.reduce(files, %{}, fn file, acc ->
           full = Path.join(dir, file)
 
           case File.read(full) do
             {:ok, content} ->
-              # KEY MUST MATCH RESOLVER CONTRACT
-              Map.put(acc, Path.join("partials", file), content)
+              key = Path.join("partials", file)
+              Logger.debug(%{event: "partial_loaded", key: key, size: byte_size(content)})
+              Map.put(acc, key, content)
 
-            _ ->
+            {:error, reason} ->
+              Logger.warning("partial_read_failed", path: full, reason: reason)
               acc
           end
         end)
 
+      Logger.info(%{event: "partials_loaded", count: map_size(partials)})
       {:ok, partials}
     end
   end
@@ -95,8 +102,13 @@ defmodule TemplateServer.TemplateReader.File do
       full_path = Path.join(base_url, rel_path)
 
       case File.read(full_path) do
-        {:ok, content} -> {:ok, content}
-        error -> error
+        {:ok, content} ->
+          Logger.debug(%{event: "page_loaded", path: rel_path, size: byte_size(content)})
+          {:ok, content}
+
+        {:error, reason} ->
+          Logger.warning("page_read_failed", path: rel_path, reason: reason)
+          {:error, reason}
       end
     end
   end

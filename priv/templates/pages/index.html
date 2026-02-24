@@ -1,6 +1,9 @@
-<html>
-    <% head.html %/>
-    <body>
-        Hello real world!
-    </body>
-</html>
+<% page.html %>
+<slot:head>
+    <title>Welcome</title>
+</slot:head>
+<slot:main>
+    <h1>Welcome</h1>
+    <p>Hello real world!</p>
+</slot:main>
+<%/ page.html %>
