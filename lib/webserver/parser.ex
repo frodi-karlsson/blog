@@ -31,10 +31,25 @@ defmodule Webserver.Parser do
 
   @spec parse(ParseInput.t()) :: parse_result()
   def parse(parse_input) do
-    case process_slots(parse_input.file, parse_input) do
-      {:ok, processed_file} -> process_self_closing(processed_file, parse_input)
-      error -> error
-    end
+    start_time = System.monotonic_time()
+    metadata = %{base_url: parse_input.base_url}
+
+    :telemetry.execute(
+      [:webserver, :parser, :start],
+      %{system_time: System.system_time()},
+      metadata
+    )
+
+    result =
+      case process_slots(parse_input.file, parse_input) do
+        {:ok, processed_file} -> process_self_closing(processed_file, parse_input)
+        error -> error
+      end
+
+    duration = System.monotonic_time() - start_time
+    :telemetry.execute([:webserver, :parser, :stop], %{duration: duration}, metadata)
+
+    result
   end
 
   defp process_slots(file, parse_input) do

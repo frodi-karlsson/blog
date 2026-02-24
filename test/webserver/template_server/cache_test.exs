@@ -4,15 +4,13 @@ defmodule Webserver.TemplateServer.CacheTest do
   alias Webserver.TemplateServer.Cache
   alias Webserver.TemplateServer.TemplateReader.Sandbox
 
-  # Start an isolated Cache instance, bypassing the fixed `name: __MODULE__`
-  # registration so tests don't interfere with each other or the app-level cache.
   defp start_cache(opts \\ []) do
     base_url = Keyword.get(opts, :base_url, "/priv/templates")
     interval = Keyword.get(opts, :interval, 0)
     reader = Keyword.get(opts, :reader, Sandbox)
     name = :"test_cache_#{System.unique_integer([:positive])}"
 
-    {:ok, _pid} = GenServer.start_link(Cache, {base_url, interval, reader}, name: name)
+    {:ok, _pid} = GenServer.start_link(Cache, {base_url, interval, reader, name}, name: name)
     name
   end
 
@@ -23,29 +21,29 @@ defmodule Webserver.TemplateServer.CacheTest do
     end
 
     test "fails to start when reader cannot find partials directory" do
-      # Sandbox returns {:error, :enoent} for any base_url except "/priv/templates".
-      # Use start/3 (no link) so the abnormal exit doesn't crash the test process.
+      name = :"test_cache_#{System.unique_integer([:positive])}"
+
       assert {:error, :enoent} =
-               GenServer.start(Cache, {"/nonexistent", 0, Sandbox}, [])
+               GenServer.start(Cache, {"/nonexistent", 0, Sandbox, name}, name: name)
     end
   end
 
   describe "get_page" do
     test "returns parsed HTML for a known page" do
       name = start_cache()
-      assert {:ok, html} = GenServer.call(name, {:get_page, "index.html"})
+      assert {:ok, html} = Cache.get_page(name, "index.html")
       assert String.contains?(html, "<html>")
     end
 
     test "returns :not_found for an unknown page" do
       name = start_cache()
-      assert {:error, :not_found} = GenServer.call(name, {:get_page, "missing.html"})
+      assert {:error, :not_found} = Cache.get_page(name, "missing.html")
     end
 
     test "second call for same page is a cache hit" do
       name = start_cache()
-      {:ok, first} = GenServer.call(name, {:get_page, "index.html"})
-      {:ok, second} = GenServer.call(name, {:get_page, "index.html"})
+      {:ok, first} = Cache.get_page(name, "index.html")
+      {:ok, second} = Cache.get_page(name, "index.html")
       assert first == second
     end
   end
@@ -53,13 +51,13 @@ defmodule Webserver.TemplateServer.CacheTest do
   describe "stats" do
     test "starts with all counters at zero" do
       name = start_cache()
-      assert GenServer.call(name, :stats) == %{hits: 0, misses: 0, revalidations: 0}
+      assert Cache.stats(name) == %{hits: 0, misses: 0, revalidations: 0}
     end
 
     test "records a miss on first page load" do
       name = start_cache()
-      GenServer.call(name, {:get_page, "index.html"})
-      stats = GenServer.call(name, :stats)
+      Cache.get_page(name, "index.html")
+      stats = Cache.stats(name)
       assert stats.misses == 1
       assert stats.hits == 0
     end
@@ -67,18 +65,17 @@ defmodule Webserver.TemplateServer.CacheTest do
     test "records a hit on repeated page load" do
       name = start_cache()
 
-      # interval=0 means we always check mtime, but Sandbox has no mtime so nil==nil → no revalidation
-      GenServer.call(name, {:get_page, "index.html"})
-      GenServer.call(name, {:get_page, "index.html"})
-      stats = GenServer.call(name, :stats)
+      Cache.get_page(name, "index.html")
+      Cache.get_page(name, "index.html")
+      stats = Cache.stats(name)
       assert stats.misses == 1
       assert stats.hits == 1
     end
 
     test "records a miss for not-found pages" do
       name = start_cache()
-      GenServer.call(name, {:get_page, "missing.html"})
-      stats = GenServer.call(name, :stats)
+      Cache.get_page(name, "missing.html")
+      stats = Cache.stats(name)
       assert stats.misses == 1
     end
   end
@@ -86,18 +83,18 @@ defmodule Webserver.TemplateServer.CacheTest do
   describe "force_refresh" do
     test "resets stats and page cache" do
       name = start_cache()
-      GenServer.call(name, {:get_page, "index.html"})
-      GenServer.call(name, {:get_page, "index.html"})
+      Cache.get_page(name, "index.html")
+      Cache.get_page(name, "index.html")
 
-      assert :ok = GenServer.call(name, :force_refresh)
-      assert GenServer.call(name, :stats) == %{hits: 0, misses: 0, revalidations: 0}
+      assert :ok = Cache.force_refresh(name)
+      assert Cache.stats(name) == %{hits: 0, misses: 0, revalidations: 0}
     end
 
     test "pages are re-fetched after force_refresh" do
       name = start_cache()
-      {:ok, before_refresh} = GenServer.call(name, {:get_page, "index.html"})
-      :ok = GenServer.call(name, :force_refresh)
-      {:ok, after_refresh} = GenServer.call(name, {:get_page, "index.html"})
+      {:ok, before_refresh} = Cache.get_page(name, "index.html")
+      :ok = Cache.force_refresh(name)
+      {:ok, after_refresh} = Cache.get_page(name, "index.html")
       assert before_refresh == after_refresh
     end
   end
