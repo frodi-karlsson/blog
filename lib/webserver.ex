@@ -8,21 +8,14 @@ defmodule Webserver do
   def start(_start_type, _start_args) do
     port = Application.fetch_env!(:webserver, :port)
     base_url = Application.fetch_env!(:webserver, :base_url)
+    mtime_check_interval = Application.fetch_env!(:webserver, :mtime_check_interval)
 
     children = [
-      {TemplateServer.Cache, base_url},
+      {Registry, name: TemplateServer.Registry, keys: :unique},
+      {TemplateServer.Cache, {base_url, mtime_check_interval}},
       {Bandit, plug: Router, scheme: :http, port: port}
     ]
 
     Supervisor.start_link(children, strategy: :one_for_one)
-  end
-
-  def start_template_server(_base_url) do
-    # Kept for backward compatibility, but cache is now a singleton
-    if Process.whereis(TemplateServer.Cache) do
-      {:ok, Process.whereis(TemplateServer.Cache)}
-    else
-      {:error, :cache_not_started}
-    end
   end
 end

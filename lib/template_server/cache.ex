@@ -1,51 +1,73 @@
 defmodule TemplateServer.Cache do
   @moduledoc """
-  Singleton GenServer that caches templates with mtime-based invalidation.
+  GenServer that caches templates with TTL-based mtime revalidation.
 
-  Cache Structure:
-  %{
-    base_url: "/priv/templates",
-    partials: %{"partials/head.html" => {content, mtime}},
-    pages: %{"pages/index.html" => {parsed, mtime}},
-    stats: %{hits: 0, misses: 0, mtime_checks: 0, revalidations: 0}
-  }
+  Cache entries are revalidated at most once per `check_interval` milliseconds.
+  Set interval to 0 to always check mtime (dev/test), or higher for production.
   """
 
   use GenServer
+
+  alias TemplateServer.TemplateReader
+
   require Logger
 
-  defstruct [:base_url, :partials, :pages, :stats]
-
-  @spec start_link(binary()) :: GenServer.on_start()
-  def start_link(base_url) do
-    GenServer.start_link(__MODULE__, base_url, name: __MODULE__)
+  defmodule State do
+    defstruct [:base_url, :check_interval, :partials, :pages, :stats, :last_check_at]
   end
 
-  @spec get_partials(pid()) :: map()
-  def get_partials(pid \\ __MODULE__) do
-    GenServer.call(pid, {:get_partials})
+  defmodule PartialEntry do
+    defstruct [:content, :mtime]
+
+    def new(content, mtime), do: %__MODULE__{content: content, mtime: mtime}
   end
 
-  @spec get_page(pid(), binary()) :: {:ok, binary()} | {:error, :not_found}
-  def get_page(pid \\ __MODULE__, path) do
-    GenServer.call(pid, {:get_page, path})
+  defmodule PageEntry do
+    defstruct [:parsed, :mtime]
+
+    def new(parsed, mtime), do: %__MODULE__{parsed: parsed, mtime: mtime}
   end
 
-  @spec stats(pid()) :: map()
-  def stats(pid \\ __MODULE__) do
-    GenServer.call(pid, {:stats})
+  defmodule Stats do
+    defstruct [:hits, :misses, :revalidations]
+
+    def new, do: %__MODULE__{hits: 0, misses: 0, revalidations: 0}
+
+    def increment(%__MODULE__{} = stats, :hits), do: %{stats | hits: stats.hits + 1}
+    def increment(%__MODULE__{} = stats, :misses), do: %{stats | misses: stats.misses + 1}
+
+    def increment(%__MODULE__{} = stats, :revalidations),
+      do: %{stats | revalidations: stats.revalidations + 1}
   end
 
-  @spec force_refresh(pid()) :: :ok | {:error, term()}
-  def force_refresh(pid \\ __MODULE__) do
-    GenServer.call(pid, {:force_refresh})
+  def start_link({base_url, check_interval}) do
+    name = {:via, Registry, {TemplateServer.Registry, base_url}}
+    GenServer.start_link(__MODULE__, {base_url, check_interval}, name: name)
+  end
+
+  def get_page(path) do
+    base_url = Application.fetch_env!(:webserver, :base_url)
+    via = {:via, Registry, {TemplateServer.Registry, base_url}}
+    GenServer.call(via, {:get_page, path})
+  end
+
+  def stats do
+    base_url = Application.fetch_env!(:webserver, :base_url)
+    via = {:via, Registry, {TemplateServer.Registry, base_url}}
+    GenServer.call(via, {:stats})
+  end
+
+  def force_refresh do
+    base_url = Application.fetch_env!(:webserver, :base_url)
+    via = {:via, Registry, {TemplateServer.Registry, base_url}}
+    GenServer.call(via, {:force_refresh})
   end
 
   @impl true
-  def init(base_url) when is_binary(base_url) do
+  def init({base_url, check_interval}) when is_binary(base_url) and is_integer(check_interval) do
     Logger.info(%{event: "cache_initializing", base_url: base_url})
 
-    case TemplateServer.TemplateReader.get_partials(base_url) do
+    case TemplateReader.get_partials(base_url) do
       {:ok, partials} ->
         Logger.info(%{
           event: "cache_initialized",
@@ -53,17 +75,19 @@ defmodule TemplateServer.Cache do
           partial_count: map_size(partials)
         })
 
-        state = %__MODULE__{
+        state = %State{
           base_url: base_url,
+          check_interval: check_interval,
           partials: %{},
           pages: %{},
-          stats: %{hits: 0, misses: 0, mtime_checks: 0, revalidations: 0}
+          stats: Stats.new(),
+          last_check_at: 0
         }
 
         state =
           Enum.reduce(partials, state, fn {key, content}, acc ->
             mtime = mtime_for_file(base_url, Path.join("partials", Path.basename(key)))
-            put_in(acc.partials[key], {content, mtime})
+            put_in(acc.partials[key], PartialEntry.new(content, mtime))
           end)
 
         {:ok, state}
@@ -75,107 +99,70 @@ defmodule TemplateServer.Cache do
   end
 
   @impl true
-  def handle_call({:get_partials}, _from, state) do
-    updated_state = increment_stats(state, :mtime_checks)
+  def handle_call({:get_page, path}, _from, state) do
+    cache_key = "pages/#{path}"
+    now = System.system_time(:millisecond)
+    should_revalidate = now - state.last_check_at >= state.check_interval
 
-    updated_partials =
-      Enum.reduce(state.partials, updated_state.partials, fn
-        {key, {_content, cached_mtime}}, acc ->
-          case mtime_for_file(state.base_url, Path.join("partials", Path.basename(key))) do
-            ^cached_mtime ->
-              acc
+    partials = build_partials_map(state.partials)
 
-            new_mtime ->
-              Logger.debug(%{event: "partial_revalidation", key: key})
+    case Map.fetch(state.pages, cache_key) do
+      {:ok, %PageEntry{parsed: parsed, mtime: cached_mtime}} ->
+        if should_revalidate and mtime_changed?(state.base_url, cache_key, cached_mtime) do
+          Logger.debug(%{event: "page_revalidation", path: path})
 
-              case TemplateServer.TemplateReader.read_partial(state.base_url, Path.basename(key)) do
-                {:ok, new_content} ->
-                  Map.put(acc, key, {new_content, new_mtime})
+          case TemplateReader.read_page(state.base_url, path) do
+            {:ok, content} ->
+              case parse_page(content, partials, state.base_url) do
+                {:ok, new_parsed} ->
+                  current_mtime = mtime_for_file(state.base_url, cache_key)
+                  new_page = PageEntry.new(new_parsed, current_mtime)
+                  new_pages = Map.put(state.pages, cache_key, new_page)
+                  new_stats = Stats.increment(state.stats, :revalidations)
+                  new_state = %{state | pages: new_pages, stats: new_stats, last_check_at: now}
+                  {:reply, {:ok, new_parsed}, new_state}
 
                 {:error, _} ->
-                  Logger.warning("partial_reload_failed", key: key)
-                  acc
-              end
-          end
-      end)
-
-    new_state = %{
-      updated_state
-      | partials: updated_partials,
-        stats: increment(updated_state.stats, :hits)
-    }
-
-    partials_content = Map.new(updated_partials, fn {k, {content, _mtime}} -> {k, content} end)
-    {:reply, partials_content, new_state}
-  end
-
-  @impl true
-  def handle_call({:get_page, path}, _from, state) do
-    updated_state = increment_stats(state, :mtime_checks)
-    cache_key = "pages/#{path}"
-
-    partials_content =
-      Map.new(updated_state.partials, fn {k, {content, _mtime}} -> {k, content} end)
-
-    case Map.fetch(updated_state.pages, cache_key) do
-      {:ok, {_parsed, cached_mtime}} ->
-        current_mtime = mtime_for_file(state.base_url, cache_key)
-
-        if current_mtime == cached_mtime do
-          Logger.debug(%{event: "cache_hit", path: path})
-          new_state = %{updated_state | stats: increment(updated_state.stats, :hits)}
-          {:reply, {:ok, elem(Map.get(updated_state.pages, cache_key), 0)}, new_state}
-        else
-          Logger.debug(%{event: "page_revalidation", path: cache_key})
-          Logger.debug(%{event: "page_mtime_changed", path: cache_key})
-          Logger.debug(%{event: "cache_revalidation", path: path})
-
-          case TemplateServer.TemplateReader.read_page(state.base_url, path) do
-            {:ok, content} ->
-              case parse_page(content, partials_content, state.base_url) do
-                {:ok, parsed} ->
-                  new_page = {parsed, current_mtime}
-                  new_pages = Map.put(updated_state.pages, cache_key, new_page)
-                  new_stats = increment(updated_state.stats, :revalidations)
-                  {:reply, {:ok, parsed}, %{updated_state | pages: new_pages, stats: new_stats}}
-
-                {:error, _reason} ->
-                  new_state = %{updated_state | stats: increment(updated_state.stats, :misses)}
+                  new_stats = Stats.increment(state.stats, :misses)
+                  new_state = %{state | stats: new_stats, last_check_at: now}
                   {:reply, {:error, :not_found}, new_state}
               end
 
             {:error, _} ->
-              new_state = %{updated_state | stats: increment(updated_state.stats, :misses)}
+              new_stats = Stats.increment(state.stats, :misses)
+              new_state = %{state | stats: new_stats, last_check_at: now}
               {:reply, {:error, :not_found}, new_state}
           end
+        else
+          Logger.debug(%{event: "cache_hit", path: path})
+          new_stats = Stats.increment(state.stats, :hits)
+          new_state = %{state | stats: new_stats}
+          {:reply, {:ok, parsed}, new_state}
         end
 
       :error ->
         Logger.debug(%{event: "cache_miss", path: path})
 
-        case TemplateServer.TemplateReader.read_page(state.base_url, path) do
+        case TemplateReader.read_page(state.base_url, path) do
           {:ok, content} ->
-            case parse_page(content, partials_content, state.base_url) do
+            case parse_page(content, partials, state.base_url) do
               {:ok, parsed} ->
                 mtime = mtime_for_file(state.base_url, cache_key)
-                new_page = {parsed, mtime}
-                new_pages = Map.put(updated_state.pages, cache_key, new_page)
-
-                new_state = %{
-                  updated_state
-                  | pages: new_pages,
-                    stats: increment(updated_state.stats, :misses)
-                }
-
+                new_page = PageEntry.new(parsed, mtime)
+                new_pages = Map.put(state.pages, cache_key, new_page)
+                new_stats = Stats.increment(state.stats, :misses)
+                new_state = %{state | pages: new_pages, stats: new_stats, last_check_at: now}
                 {:reply, {:ok, parsed}, new_state}
 
-              {:error, _reason} ->
-                new_state = %{updated_state | stats: increment(updated_state.stats, :misses)}
+              {:error, _} ->
+                new_stats = Stats.increment(state.stats, :misses)
+                new_state = %{state | stats: new_stats, last_check_at: now}
                 {:reply, {:error, :not_found}, new_state}
             end
 
           {:error, _} ->
-            new_state = %{updated_state | stats: increment(updated_state.stats, :misses)}
+            new_stats = Stats.increment(state.stats, :misses)
+            new_state = %{state | stats: new_stats, last_check_at: now}
             {:reply, {:error, :not_found}, new_state}
         end
     end
@@ -183,26 +170,33 @@ defmodule TemplateServer.Cache do
 
   @impl true
   def handle_call({:stats}, _from, state) do
-    {:reply, state.stats, state}
+    stats_map = %{
+      hits: state.stats.hits,
+      misses: state.stats.misses,
+      revalidations: state.stats.revalidations
+    }
+
+    {:reply, stats_map, state}
   end
 
   @impl true
   def handle_call({:force_refresh}, _from, state) do
     Logger.info(%{event: "cache_force_refresh"})
 
-    case TemplateServer.TemplateReader.get_partials(state.base_url) do
+    case TemplateReader.get_partials(state.base_url) do
       {:ok, partials} ->
         new_partials =
           Enum.reduce(partials, %{}, fn {key, content}, acc ->
             mtime = mtime_for_file(state.base_url, Path.join("partials", Path.basename(key)))
-            Map.put(acc, key, {content, mtime})
+            Map.put(acc, key, PartialEntry.new(content, mtime))
           end)
 
         new_state = %{
           state
           | partials: new_partials,
             pages: %{},
-            stats: %{hits: 0, misses: 0, mtime_checks: 0, revalidations: 0}
+            stats: Stats.new(),
+            last_check_at: 0
         }
 
         {:reply, :ok, new_state}
@@ -211,6 +205,15 @@ defmodule TemplateServer.Cache do
         Logger.error(%{event: "cache_refresh_failed", reason: reason})
         {:reply, {:error, reason}, state}
     end
+  end
+
+  defp build_partials_map(partials) do
+    Map.new(partials, fn {k, %PartialEntry{content: content}} -> {k, content} end)
+  end
+
+  defp mtime_changed?(base_url, cache_key, cached_mtime) do
+    current_mtime = mtime_for_file(base_url, cache_key)
+    current_mtime != cached_mtime
   end
 
   defp parse_page(content, partials, base_url) do
@@ -228,13 +231,5 @@ defmodule TemplateServer.Cache do
       {:ok, %{mtime: mtime}} -> mtime
       {:error, _} -> nil
     end
-  end
-
-  defp increment(stats, key) do
-    Map.update(stats, key, 1, &(&1 + 1))
-  end
-
-  defp increment_stats(state, key) do
-    %{state | stats: increment(state.stats, key)}
   end
 end
