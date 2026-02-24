@@ -38,7 +38,7 @@ defmodule Webserver.TemplateServer.TemplateReader.Sandbox do
        </html>
        """}
     else
-      {:error, {:not_found, path}}
+      {:error, :enoent}
     end
   end
 

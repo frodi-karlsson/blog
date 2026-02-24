@@ -163,10 +163,7 @@ defmodule Webserver.TemplateServer.Cache do
             {:reply, {:error, reason}, state}
         end
 
-      {:error, {:not_found, _}} ->
-        {:reply, {:error, :not_found}, %{state | misses: state.misses + 1}}
-
-      {:error, :not_found} ->
+      {:error, reason} when reason in [:enoent, :invalid_path, :not_found] ->
         {:reply, {:error, :not_found}, %{state | misses: state.misses + 1}}
 
       {:error, reason} ->

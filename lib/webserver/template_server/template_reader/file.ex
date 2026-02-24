@@ -24,18 +24,14 @@ defmodule Webserver.TemplateServer.TemplateReader.File do
 
   @impl true
   def read_page(base_url, path) do
-    with {:ok, rel_path} <- Resolver.resolve_page(path, base_url) do
-      full_path = Path.join(base_url, rel_path)
-
-      case File.read(full_path) do
-        {:ok, content} ->
-          Logger.debug(%{event: "page_loaded", path: rel_path, size: byte_size(content)})
-          {:ok, content}
-
-        {:error, reason} ->
-          Logger.warning(%{event: "page_read_failed", path: rel_path, reason: reason})
-          {:error, reason}
-      end
+    with {:ok, rel_path} <- Resolver.resolve_page(path, base_url),
+         {:ok, content} <- File.read(Path.join(base_url, rel_path)) do
+      Logger.debug(%{event: "page_loaded", path: rel_path, size: byte_size(content)})
+      {:ok, content}
+    else
+      {:error, reason} ->
+        Logger.warning(%{event: "page_read_failed", path: path, reason: reason})
+        {:error, reason}
     end
   end
 

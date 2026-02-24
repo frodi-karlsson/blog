@@ -22,8 +22,7 @@ defmodule Webserver.TemplateServer.TemplateReaderTest do
     end
 
     test "returns error for missing page" do
-      assert Sandbox.read_page("/priv/templates", "missing.html") ==
-               {:error, {:not_found, "missing.html"}}
+      assert Sandbox.read_page("/priv/templates", "missing.html") == {:error, :enoent}
     end
   end
 
