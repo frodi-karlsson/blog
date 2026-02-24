@@ -10,10 +10,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ci:
-    name: CI
+  test:
+    name: Checks & Tests
     runs-on: ubuntu-latest
-
+    env:
+      MIX_ENV: test
     steps:
       - uses: actions/checkout@v4
 
@@ -29,32 +30,27 @@ jobs:
           path: |
             deps
             _build
-          key: ${{ runner.os }}-otp-27.2-elixir-1.19.5-mix-${{ hashFiles('**/mix.lock') }}
+          key: ${{ runner.os }}-otp-27.2-elixir-1.19.5-test-mix-${{ hashFiles('**/mix.lock') }}
           restore-keys: |
-            ${{ runner.os }}-otp-27.2-elixir-1.19.5-mix-
+            ${{ runner.os }}-otp-27.2-elixir-1.19.5-test-mix-
 
       - name: Install dependencies
         run: mix deps.get
 
       - name: Compile
-        run: mix compile
+        run: mix compile --warnings-as-errors
 
       - name: Run checks
         run: mix check
 
-      - name: Build release
-        run: MIX_ENV=prod mix release
+  docker:
+    name: Docker & Security
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      - name: Restore Docker layer cache
-        uses: actions/cache@v4
-        with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-docker-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-docker-
 
       - name: Build Docker image
         uses: docker/build-push-action@v5
@@ -62,13 +58,8 @@ jobs:
           context: .
           load: true
           tags: webserver:test
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
-
-      - name: Move Docker cache
-        run: |
-          rm -rf /tmp/.buildx-cache
-          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@0.29.0
