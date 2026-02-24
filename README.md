@@ -1,6 +1,6 @@
 # Webserver
 
-A little learning project for elixir written with a mild fever. What a cool language.
+A little learning project for elixir written with a mild fever. What a cool language. I decided to not use phoenix or similar, and just use plug and bandit so I have more chances to learn something.
 
 ## Installation
 
