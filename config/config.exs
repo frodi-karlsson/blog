@@ -8,4 +8,11 @@ config :webserver,
   live_reload: false,
   inject_assets: true
 
+config :dart_sass,
+  version: "1.83.4",
+  default: [
+    args: ~w(css/app.scss:../priv/static/css/app.css),
+    cd: Path.expand("../assets", __DIR__)
+  ]
+
 import_config "#{config_env()}.exs"

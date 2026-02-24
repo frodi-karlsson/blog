@@ -25,8 +25,8 @@ resource "digitalocean_ssh_key" "default" {
 }
 
 resource "digitalocean_droplet" "blog" {
-  image    = "ubuntu-22-04-x64"
-  name     = "webserver-blog"
+  image      = "ubuntu-22-04-x64"
+  name       = "webserver-blog"
   region     = var.do_region
   size       = "s-1vcpu-512mb-10gb"
   ssh_keys   = [digitalocean_ssh_key.default.id]

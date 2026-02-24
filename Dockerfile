@@ -1,10 +1,18 @@
+FROM debian:trixie-slim AS adder
+ADD https://github.com/sass/dart-sass/releases/download/1.83.4/dart-sass-1.83.4-linux-x64.tar.gz /
+RUN tar -xvzf /dart-sass-1.83.4-linux-x64.tar.gz
+
 FROM elixir:1.19.5-slim AS build
 
 RUN apt-get update && \
     apt-get install -y build-essential bash ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
+COPY --from=adder /dart-sass /usr/local/bin/
+
 WORKDIR /app
+
+ENV MIX_ENV=prod
 
 COPY mix.exs mix.lock ./
 RUN mix deps.get --only prod
@@ -15,12 +23,13 @@ COPY assets assets
 COPY lib lib
 COPY priv priv
 
-RUN mix sass.install && \
-    mix sass default --no-watch
+RUN mkdir -p priv/static/css && \
+    mix sass.install && \
+    mix sass default
 
-RUN MIX_ENV=prod mix release
+RUN mix release
 
-FROM debian:bookworm-slim AS app
+FROM debian:trixie-slim AS app
 
 RUN apt-get update && \
     apt-get upgrade -y && \
