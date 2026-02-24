@@ -75,12 +75,13 @@ jobs:
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@0.29.0
+        env:
+          TRIVY_EXIT_CODE: 1
+          TRIVY_SEVERITY: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
+          TRIVY_IGNORE_UNFIXED: "true"
         with:
           image-ref: 'ghcr.io/${{ github.repository }}:${{ github.sha }}'
           format: 'table'
-          exit-code: '1'
-          ignore-unfixed: true
-          severity: 'UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL'
 
   infrastructure:
     name: Infrastructure Analysis
@@ -112,9 +113,10 @@ jobs:
 
       - name: Run Trivy vulnerability scanner (IaC)
         uses: aquasecurity/trivy-action@0.29.0
+        env:
+          TRIVY_EXIT_CODE: 1
+          TRIVY_SEVERITY: HIGH,CRITICAL
         with:
           scan-type: 'config'
           scan-ref: 'tofu'
-          exit-code: '1'
-          severity: 'HIGH,CRITICAL'
           trivy-config: 'tofu/.trivy.yaml'
