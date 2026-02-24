@@ -29,9 +29,9 @@ jobs:
           path: |
             deps
             _build
-          key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
+          key: ${{ runner.os }}-otp-27.2-elixir-1.19.5-mix-${{ hashFiles('**/mix.lock') }}
           restore-keys: |
-            ${{ runner.os }}-mix-
+            ${{ runner.os }}-otp-27.2-elixir-1.19.5-mix-
 
       - name: Install dependencies
         run: mix deps.get
@@ -62,9 +62,9 @@ jobs:
           path: |
             deps
             _build
-          key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
+          key: ${{ runner.os }}-otp-27.2-elixir-1.19.5-mix-${{ hashFiles('**/mix.lock') }}
           restore-keys: |
-            ${{ runner.os }}-mix-
+            ${{ runner.os }}-otp-27.2-elixir-1.19.5-mix-
 
       - name: Install dependencies
         run: mix deps.get --only prod
