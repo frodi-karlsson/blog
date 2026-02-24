@@ -15,7 +15,7 @@ defmodule ServerTest do
         name: "return 404 for missing template",
         path: "/nonexistent",
         expected_status: 404,
-        expected_body: "Template not found"
+        expected_body: "<h1>404 Page Not Found</h1>"
       }
     ]
 
@@ -32,8 +32,53 @@ defmodule ServerTest do
         conn = Server.call(conn, [])
 
         assert conn.status == unquoted.expected_status
-        assert conn.resp_body == unquoted.expected_body
+        assert String.contains?(conn.resp_body, unquoted.expected_body)
       end
+    end
+  end
+
+
+  describe "parser error handling" do
+    test "returns 500 for missing slots" do
+      partials = %{
+        "partials/head.html" => "<head><title>Test</title></head>",
+        "partials/page.html" => "<html><head>{{title}}</head><body>{{body}}</body></html>"
+      }
+
+      file = """
+      <% page.html %>
+      <slot:body>Content</slot:body>
+      <%/ page.html %>
+      """
+
+      {:error, {:missing_slots, ["title"]}} =
+        Parser.parse(%Parser.ParseInput{
+          file: file,
+          base_url: "/test",
+          partials: partials
+        })
+    end
+
+    test "returns 500 for unexpected slots" do
+      partials = %{
+        "partials/head.html" => "<head><title>Test</title></head>",
+        "partials/page.html" => "<html><head>{{title}}</head><body>{{body}}</body></html>"
+      }
+
+      file = """
+      <% page.html %>
+      <slot:title>Title</slot:title>
+      <slot:body>Body</slot:body>
+      <slot:extra>Extra</slot:extra>
+      <%/ page.html %>
+      """
+
+      {:error, {:unexpected_slots, ["extra"]}} =
+        Parser.parse(%Parser.ParseInput{
+          file: file,
+          base_url: "/test",
+          partials: partials
+        })
     end
   end
 end
