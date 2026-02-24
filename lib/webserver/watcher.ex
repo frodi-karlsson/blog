@@ -59,16 +59,10 @@ defmodule Webserver.Watcher do
 
       true ->
         case Path.split(rel_path) do
-          ["pages", "blog" | rest] ->
-            filename = Path.join(["blog" | rest])
-            GenServer.cast(Cache, {:invalidate, filename})
-            GenServer.cast(Cache, :refresh_blog_index)
-            GenServer.cast(Cache, :refresh_page_registry)
-            broadcast_reload(:full)
-
           ["pages" | rest] ->
             filename = Path.join(rest)
             GenServer.cast(Cache, {:invalidate, filename})
+            GenServer.cast(Cache, :refresh_blog_index)
             GenServer.cast(Cache, :refresh_page_registry)
             broadcast_reload(:full)
 

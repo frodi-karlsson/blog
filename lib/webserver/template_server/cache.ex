@@ -305,7 +305,7 @@ defmodule Webserver.TemplateServer.Cache do
   end
 
   defp render_if_exists(%{"id" => id} = post, partial, state) do
-    case state.reader.read_page(state.base_url, "blog/#{id}.html") do
+    case state.reader.read_page(state.base_url, "#{id}.html") do
       {:ok, _} -> render_item(partial, post)
       _ -> ""
     end
@@ -315,7 +315,7 @@ defmodule Webserver.TemplateServer.Cache do
     partial
     |> String.replace("{{category}}", post["category"] || "")
     |> String.replace("{{date}}", post["date"] || "")
-    |> String.replace("{{url}}", "/blog/#{post["id"]}")
+    |> String.replace("{{url}}", "/#{post["id"]}")
     |> String.replace("{{title}}", post["title"] || "")
     |> String.replace("{{summary}}", post["summary"] || "")
   end

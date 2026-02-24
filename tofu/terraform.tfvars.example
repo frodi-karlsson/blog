@@ -1,0 +1,5 @@
+cloudflare_token   = "your-cloudflare-token"
+cloudflare_zone_id = "your-cloudflare-zone-id"
+do_token           = "your-digitalocean-api-token"
+do_region           = "fra1"
+ssh_public_key_path = "~/.ssh/id_ed25519.pub"
