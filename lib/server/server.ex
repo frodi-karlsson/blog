@@ -10,13 +10,7 @@ defmodule Server do
   end
 
   @doc """
-  Responds with an html file (currently just a placeholder)
-
-  iex> Application.put_env(:webserver, :base_url, "/priv/templates")
-  iex> conn = Plug.Test.conn(:get, "/")
-  iex> conn = Server.call(conn, [])
-  iex> conn.status
-  200
+  Responds with a 200 + html file, or error code + plain text
   """
   def call(conn, _opts) do
     base_url = Application.get_env(:webserver, :base_url)

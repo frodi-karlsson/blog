@@ -18,7 +18,6 @@ defmodule ParserTest do
           """
         },
         base_url: "/priv/templates",
-        # todo: indentation match and extra newline?
         output:
           {:ok,
            ~S"""
@@ -29,11 +28,39 @@ defmodule ParserTest do
 
              </html>
            """}
+      },
+      %{
+        name: "no partials in file",
+        input: ~S"""
+          <html>
+            <body>Hello World</body>
+          </html>
+        """,
+        partials: %{},
+        base_url: "/priv/templates",
+        output:
+          {:ok,
+           ~S"""
+             <html>
+               <body>Hello World</body>
+             </html>
+           """}
+      },
+      %{
+        name: "partial not found returns error",
+        input: ~S"""
+          <html>
+            <% missing.html %/>
+          </html>
+        """,
+        partials: %{},
+        base_url: "/priv/templates",
+        output: {:error, {:ref_not_found, " missing.html "}}
       }
     ]
 
     for test_case <- @cases do
-      test "should give expected output for #{test_case.name}" do
+      test "should #{test_case.name}" do
         unquoted_test_case = unquote(Macro.escape(test_case))
 
         result =
@@ -45,6 +72,17 @@ defmodule ParserTest do
 
         assert result == unquoted_test_case.output
       end
+    end
+
+    test "should handle empty file" do
+      result =
+        Parser.parse(%Parser.ParseInput{
+          file: "",
+          partials: %{},
+          base_url: "/priv/templates"
+        })
+
+      assert result == {:ok, ""}
     end
   end
 end
