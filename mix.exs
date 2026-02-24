@@ -9,13 +9,11 @@ defmodule Webserver.MixProject do
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       dialyzer: [
-        files: ["lib"],
         plt_add_apps: [:mix]
       ]
     ]
   end
 
-  # Run "mix help compile.app" to learn about applications.
   def application do
     [
       extra_applications: [:logger],
@@ -23,13 +21,14 @@ defmodule Webserver.MixProject do
     ]
   end
 
-  # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
       {:bandit, "~> 1.0"},
       {:jason, "~> 1.0"},
       {:plug, "~> 1.0"},
       {:telemetry, "~> 1.0"},
+      {:dart_sass, "~> 0.7"},
+      {:fs, "~> 8.6"},
       {:dialyxir, "~> 1.0", runtime: false},
       {:credo, ">= 0.0.0", only: [:dev, :test], runtime: false}
     ]

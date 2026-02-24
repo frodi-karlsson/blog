@@ -24,7 +24,7 @@ defmodule Webserver.TemplateServer.TemplateReader.Sandbox do
      }}
   end
 
-  def get_partials(_base_url), do: {:error, :enoent}
+  def get_partials(_base_url), do: {:error, :not_found}
 
   @impl true
   def read_page(_base_url, path) do
@@ -38,7 +38,7 @@ defmodule Webserver.TemplateServer.TemplateReader.Sandbox do
        </html>
        """}
     else
-      {:error, :enoent}
+      {:error, :not_found}
     end
   end
 

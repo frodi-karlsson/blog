@@ -29,6 +29,10 @@ defmodule Webserver.TemplateServer.TemplateReader.File do
       Logger.debug(%{event: "page_loaded", path: rel_path, size: byte_size(content)})
       {:ok, content}
     else
+      {:error, reason} when reason in [:enoent, :not_found] ->
+        Logger.warning(%{event: "page_read_failed", path: path, reason: :not_found})
+        {:error, :not_found}
+
       {:error, reason} ->
         Logger.warning(%{event: "page_read_failed", path: path, reason: reason})
         {:error, reason}

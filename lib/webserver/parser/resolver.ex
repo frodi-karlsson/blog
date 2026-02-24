@@ -14,11 +14,11 @@ defmodule Webserver.Parser.Resolver do
     end
   end
 
-  @spec resolve_page(String.t(), String.t()) :: {:ok, String.t()} | {:error, :invalid_path}
+  @spec resolve_page(String.t(), String.t()) :: {:ok, String.t()} | {:error, :not_found}
   def resolve_page(string, base_url) do
     case resolve_path(["pages", String.trim(string)], base_url) do
       {:ok, key} -> {:ok, key}
-      :error -> {:error, :invalid_path}
+      :error -> {:error, :not_found}
     end
   end
 

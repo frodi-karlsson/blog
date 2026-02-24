@@ -11,7 +11,7 @@ defmodule Webserver.TemplateServer.TemplateReaderTest do
     end
 
     test "returns error for invalid base_url" do
-      assert Sandbox.get_partials("/invalid/path") == {:error, :enoent}
+      assert Sandbox.get_partials("/invalid/path") == {:error, :not_found}
     end
   end
 
@@ -22,7 +22,7 @@ defmodule Webserver.TemplateServer.TemplateReaderTest do
     end
 
     test "returns error for missing page" do
-      assert Sandbox.read_page("/priv/templates", "missing.html") == {:error, :enoent}
+      assert Sandbox.read_page("/priv/templates", "missing.html") == {:error, :not_found}
     end
   end
 
@@ -48,7 +48,7 @@ defmodule Webserver.TemplateServer.TemplateReaderTest do
 
     test "returns error for missing page" do
       base_path = :code.priv_dir(:webserver) |> to_string() |> Path.join("templates")
-      assert FileReader.read_page(base_path, "nonexistent.html") == {:error, :enoent}
+      assert FileReader.read_page(base_path, "nonexistent.html") == {:error, :not_found}
     end
   end
 end

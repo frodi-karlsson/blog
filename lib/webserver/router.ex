@@ -33,6 +33,8 @@ defmodule Webserver.Router do
     json(conn, 200, stats)
   end
 
+  get("/live-reload", to: Webserver.LiveReload)
+
   post "/admin/cache/refresh" do
     case Cache.force_refresh() do
       :ok -> json(conn, 200, %{status: "cache refreshed"})

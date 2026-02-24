@@ -7,12 +7,16 @@ RUN apt-get update && \
 WORKDIR /app
 
 COPY mix.exs mix.lock ./
-RUN mix deps.get --only prod && \
-    mix deps.compile
+RUN mix deps.get --only prod
+RUN mix deps.compile
 
 COPY config config
+COPY assets assets
 COPY lib lib
 COPY priv priv
+
+RUN mix sass.install && \
+    mix sass default --no-watch
 
 RUN MIX_ENV=prod mix release
 

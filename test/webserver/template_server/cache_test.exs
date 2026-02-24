@@ -23,7 +23,7 @@ defmodule Webserver.TemplateServer.CacheTest do
     test "fails to start when reader cannot find partials directory" do
       name = :"test_cache_#{System.unique_integer([:positive])}"
 
-      assert {:error, :enoent} =
+      assert {:error, :not_found} =
                GenServer.start(Cache, {"/nonexistent", 0, Sandbox, name}, name: name)
     end
   end

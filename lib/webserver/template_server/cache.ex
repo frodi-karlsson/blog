@@ -37,6 +37,7 @@ defmodule Webserver.TemplateServer.Cache do
 
       [] ->
         telemetry_execute([:cache, :miss], %{count: 1}, %{path: path})
+        safe_update_counter(table, :stats_misses)
         GenServer.call(server, {:fetch_and_cache, path})
     end
   end
@@ -47,7 +48,13 @@ defmodule Webserver.TemplateServer.Cache do
           revalidations: non_neg_integer()
         }
   def stats(server \\ __MODULE__) do
-    GenServer.call(server, :stats)
+    table = table_for(server)
+
+    %{
+      hits: get_stat(table, :stats_hits),
+      misses: get_stat(table, :stats_misses),
+      revalidations: get_stat(table, :stats_revalidations)
+    }
   end
 
   @spec force_refresh(atom() | pid()) :: :ok | {:error, term()}
@@ -57,18 +64,29 @@ defmodule Webserver.TemplateServer.Cache do
     [{:config, {_base_url, interval, _reader}}] = :ets.lookup(table, :config)
     now = System.system_time(:millisecond)
 
-    if now - entry.last_checked_at >= interval do
+    if interval > 0 and now - entry.last_checked_at >= interval do
       GenServer.call(server, {:revalidate, path, entry, now})
     else
       telemetry_execute([:cache, :hit], %{count: 1}, %{path: path})
+      safe_update_counter(table, :stats_hits)
       {:ok, entry.parsed}
     end
   end
 
   @impl true
   def init({base_url, check_interval, reader, table}) do
-    :ets.new(table, [:set, :protected, :named_table, read_concurrency: true])
+    :ets.new(table, [
+      :set,
+      :public,
+      :named_table,
+      read_concurrency: true,
+      write_concurrency: :auto
+    ])
+
     :ets.insert(table, {:config, {base_url, check_interval, reader}})
+    :ets.insert(table, {:stats_hits, 0})
+    :ets.insert(table, {:stats_misses, 0})
+    :ets.insert(table, {:stats_revalidations, 0})
 
     Logger.info(%{event: "cache_initializing", base_url: base_url, reader: reader})
 
@@ -83,10 +101,7 @@ defmodule Webserver.TemplateServer.Cache do
            table: table,
            base_url: base_url,
            check_interval: check_interval,
-           reader: reader,
-           hits: 0,
-           misses: 0,
-           revalidations: 0
+           reader: reader
          }}
 
       {:error, reason} ->
@@ -95,10 +110,17 @@ defmodule Webserver.TemplateServer.Cache do
   end
 
   @impl true
+  def handle_cast({:invalidate, filename}, state) do
+    :ets.delete(state.table, {:page, filename})
+    {:noreply, state}
+  end
+
+  @impl true
   def handle_call({:fetch_and_cache, path}, _from, state) do
     case :ets.lookup(state.table, {:page, path}) do
       [{_, %PageEntry{parsed: parsed}}] ->
-        {:reply, {:ok, parsed}, %{state | hits: state.hits + 1}}
+        safe_update_counter(state.table, :stats_hits)
+        {:reply, {:ok, parsed}, state}
 
       [] ->
         do_fetch_and_cache(path, state)
@@ -114,7 +136,8 @@ defmodule Webserver.TemplateServer.Cache do
       end
 
     if current_entry.last_checked_at > entry.last_checked_at do
-      {:reply, {:ok, current_entry.parsed}, %{state | hits: state.hits + 1}}
+      safe_update_counter(state.table, :stats_hits)
+      {:reply, {:ok, current_entry.parsed}, state}
     else
       do_revalidate(path, entry, now, state)
     end
@@ -122,12 +145,7 @@ defmodule Webserver.TemplateServer.Cache do
 
   @impl true
   def handle_call(:stats, _from, state) do
-    {:reply,
-     %{
-       hits: state.hits,
-       misses: state.misses,
-       revalidations: state.revalidations
-     }, state}
+    {:reply, stats(state.table), state}
   end
 
   @impl true
@@ -135,12 +153,15 @@ defmodule Webserver.TemplateServer.Cache do
     case state.reader.get_partials(state.base_url) do
       {:ok, partials} ->
         :ets.match_delete(state.table, {{:page, :_}, :_})
+        :ets.insert(state.table, {:stats_hits, 0})
+        :ets.insert(state.table, {:stats_misses, 0})
+        :ets.insert(state.table, {:stats_revalidations, 0})
 
         Enum.each(partials, fn {key, content} ->
           :ets.insert(state.table, {{:partial, key}, content})
         end)
 
-        {:reply, :ok, %{state | hits: 0, misses: 0, revalidations: 0}}
+        {:reply, :ok, state}
 
       {:error, reason} ->
         {:reply, {:error, reason}, state}
@@ -157,14 +178,11 @@ defmodule Webserver.TemplateServer.Cache do
             mtime = mtime_for_file(state.base_url, "pages/#{path}")
             entry = %PageEntry{parsed: parsed, mtime: mtime, last_checked_at: now}
             :ets.insert(state.table, {{:page, path}, entry})
-            {:reply, {:ok, parsed}, %{state | misses: state.misses + 1}}
+            {:reply, {:ok, parsed}, state}
 
           {:error, reason} ->
             {:reply, {:error, reason}, state}
         end
-
-      {:error, reason} when reason in [:enoent, :invalid_path, :not_found] ->
-        {:reply, {:error, :not_found}, %{state | misses: state.misses + 1}}
 
       {:error, reason} ->
         {:reply, {:error, reason}, state}
@@ -178,9 +196,10 @@ defmodule Webserver.TemplateServer.Cache do
       perform_revalidation(path, new_mtime, now, state)
     else
       telemetry_execute([:cache, :hit], %{count: 1}, %{path: path, status: :revalidated})
+      safe_update_counter(state.table, :stats_hits)
       new_entry = %{entry | last_checked_at: now}
       :ets.insert(state.table, {{:page, path}, new_entry})
-      {:reply, {:ok, entry.parsed}, %{state | hits: state.hits + 1}}
+      {:reply, {:ok, entry.parsed}, state}
     end
   end
 
@@ -190,13 +209,15 @@ defmodule Webserver.TemplateServer.Cache do
       reason: :mtime_changed
     })
 
+    safe_update_counter(state.table, :stats_revalidations)
+
     case state.reader.read_page(state.base_url, path) do
       {:ok, content} ->
         case parse_page(content, state) do
           {:ok, parsed} ->
             new_entry = %PageEntry{parsed: parsed, mtime: new_mtime, last_checked_at: now}
             :ets.insert(state.table, {{:page, path}, new_entry})
-            {:reply, {:ok, parsed}, %{state | revalidations: state.revalidations + 1}}
+            {:reply, {:ok, parsed}, state}
 
           {:error, reason} ->
             {:reply, {:error, reason}, state}
@@ -231,6 +252,17 @@ defmodule Webserver.TemplateServer.Cache do
       {:registered_name, name} -> name
       _ -> raise "ETS-backed Cache requires a named process"
     end
+  end
+
+  defp get_stat(table, key) do
+    case :ets.lookup(table, key) do
+      [{^key, val}] -> val
+      _ -> 0
+    end
+  end
+
+  defp safe_update_counter(table, key) do
+    :ets.update_counter(table, key, {2, 1}, {key, 0})
   end
 
   defp telemetry_execute(event_path, measurements, metadata) do
