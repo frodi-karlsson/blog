@@ -110,11 +110,11 @@ jobs:
         run: tofu init -backend=false && tofu validate
         working-directory: tofu
 
-      - name: Install Trivy
-        uses: aquasecurity/setup-trivy@v0.2.2
+      - name: Run Checkov (IaC)
+        uses: bridgecrewio/checkov-action@v12
         with:
-          version: v0.57.1
-          cache: true
-
-      - name: Run Trivy vulnerability scanner (IaC)
-        run: trivy config tofu --config tofu/.trivy.yaml --exit-code 1 --severity HIGH,CRITICAL
+          directory: tofu
+          framework: terraform
+          hard_fail_on: HIGH,CRITICAL
+          output_format: cli
+          compact: true

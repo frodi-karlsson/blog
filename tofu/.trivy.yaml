@@ -1,7 +1,0 @@
-misconfiguration:
-  # Focus only on the providers we use
-  scanners:
-    - terraform
-  # Suppress internal policy parsing errors that don't affect our scan
-  # Note: The 'rego' errors are typically displayed regardless of this config
-  # as they are internal to Trivy's policy loading engine.
