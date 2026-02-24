@@ -1,6 +1,6 @@
 # Webserver
 
-**TODO: Add description**
+A little learning project for elixir written with a mild fever. What a cool language.
 
 ## Installation
 
