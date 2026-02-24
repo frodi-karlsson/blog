@@ -40,6 +40,20 @@ defmodule Server do
           404,
           error_html(404, "Page Not Found", "The requested page could not be found.")
         )
+
+      {:error, _reason} ->
+        Logger.error(%{event: "server_error", path: path})
+
+        conn
+        |> put_resp_content_type("text/html")
+        |> send_resp(
+          500,
+          error_html(
+            500,
+            "Internal Server Error",
+            "An error occurred while processing your request."
+          )
+        )
     end
   end
 

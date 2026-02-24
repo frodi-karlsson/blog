@@ -1,4 +1,7 @@
 defmodule TemplateServer do
+  @moduledoc """
+  GenServer wrapper for TemplateReader that provides hot-reloading via mtime checks.
+  """
   alias TemplateServer.TemplateReader
   use GenServer
   require Logger
@@ -7,31 +10,10 @@ defmodule TemplateServer do
     GenServer.start_link(__MODULE__, base_url)
   end
 
-  @doc """
-  Returns a map with the template files at the time of init
-
-  iex> {:ok, pid} = GenServer.start_link(TemplateServer, "/priv/templates")
-  iex> TemplateServer.get_partials(pid)["partials/head.html"]
-  "<head>\n  <title>Hello world</title>\n</head>\n"
-  """
   def get_partials(pid) do
     GenServer.call(pid, {:get})
   end
 
-  @doc """
-  Initializes the template watcher, reading the base_url once
-
-  ## Examples
-
-  iex> {:ok, result} = TemplateServer.init("/priv/templates")
-  iex> result.base_url
-  "/priv/templates"
-  iex> result.files["partials/head.html"]
-  "<head>\n  <title>Hello world</title>\n</head>\n"
-
-  iex> TemplateServer.init(1)
-  {:stop, {:invalid_base_url, 1}}
-  """
   @impl true
   def init(base_url) when is_binary(base_url) do
     Logger.info(%{event: "template_server_initializing", base_url: base_url})

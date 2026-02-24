@@ -19,11 +19,6 @@ defmodule ServerTest do
       }
     ]
 
-    setup do
-      Application.put_env(:webserver, :base_url, "/priv/templates")
-      :ok
-    end
-
     for test_case <- @cases do
       test "should #{test_case.name}" do
         unquoted = unquote(Macro.escape(test_case))
@@ -36,7 +31,6 @@ defmodule ServerTest do
       end
     end
   end
-
 
   describe "parser error handling" do
     test "returns 500 for missing slots" do

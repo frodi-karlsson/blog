@@ -1,37 +1,16 @@
 defmodule TemplateServer.TemplateReader do
-  @doc """
-  Fetches all partials from the templates directory
-
-  ## Examples
-
-  iex> {:ok, partials} = TemplateServer.TemplateReader.get_partials("/priv/templates")
-  iex> partials["partials/head.html"]
-  "<head>\n  <title>Hello world</title>\n</head>\n"
+  @moduledoc """
+  Template reader behavior and implementations for reading templates.
+  Supports both in-memory (Sandbox) and filesystem-based (File) reading.
   """
   def get_partials(base_url) do
     impl().get_partials(base_url)
   end
 
-  @doc """
-  Reads a single page from the templates directory
-
-  ## Examples
-
-  iex> TemplateServer.TemplateReader.read_page("/priv/templates", "index.html")
-  {:ok, \"<html>\n  <% head.html %/>\n  <body>\n  </body>\n</html>\n\"}
-  """
   def read_page(base_url, path) do
     impl().read_page(base_url, path)
   end
 
-  @doc """
-  Reads a single partial file by filename
-
-  ## Examples
-
-  iex> TemplateServer.TemplateReader.read_partial("/priv/templates", "head.html")
-  {:ok, "<head>...</head>"}
-  """
   def read_partial(base_url, filename) do
     impl().read_partial(base_url, filename)
   end
@@ -42,6 +21,11 @@ defmodule TemplateServer.TemplateReader do
 end
 
 defmodule TemplateServer.TemplateReader.Sandbox do
+  @moduledoc """
+  In-memory template reader implementation for testing.
+  Returns predefined templates for known paths and errors for invalid paths.
+  """
+
   def get_partials(base_url) do
     if base_url == "/priv/templates" do
       {:ok,
@@ -88,6 +72,11 @@ defmodule TemplateServer.TemplateReader.Sandbox do
 end
 
 defmodule TemplateServer.TemplateReader.File do
+  @moduledoc """
+  File-based template reader implementation.
+  Reads templates from the filesystem at the configured base_url.
+  """
+
   require Logger
 
   def get_partials(base_url) do
@@ -96,24 +85,30 @@ defmodule TemplateServer.TemplateReader.File do
     with {:ok, files} <- File.ls(dir) do
       Logger.debug(%{event: "reading_partials_dir", path: dir, file_count: length(files)})
 
-      partials =
-        Enum.reduce(files, %{}, fn file, acc ->
-          full = Path.join(dir, file)
-
-          case File.read(full) do
-            {:ok, content} ->
-              key = Path.join("partials", file)
-              Logger.debug(%{event: "partial_loaded", key: key, size: byte_size(content)})
-              Map.put(acc, key, content)
-
-            {:error, reason} ->
-              Logger.warning("partial_read_failed", path: full, reason: reason)
-              acc
-          end
-        end)
+      partials = read_partial_files(dir, files)
 
       Logger.info(%{event: "partials_loaded", count: map_size(partials)})
       {:ok, partials}
+    end
+  end
+
+  defp read_partial_files(dir, files) do
+    Enum.reduce(files, %{}, fn file, acc ->
+      full = Path.join(dir, file)
+      read_single_partial(full, acc)
+    end)
+  end
+
+  defp read_single_partial(full, acc) do
+    case File.read(full) do
+      {:ok, content} ->
+        key = Path.join("partials", Path.basename(full))
+        Logger.debug(%{event: "partial_loaded", key: key, size: byte_size(content)})
+        Map.put(acc, key, content)
+
+      {:error, reason} ->
+        Logger.warning(%{event: "partial_read_failed", path: full, reason: reason})
+        acc
     end
   end
 
@@ -127,7 +122,7 @@ defmodule TemplateServer.TemplateReader.File do
           {:ok, content}
 
         {:error, reason} ->
-          Logger.warning("page_read_failed", path: rel_path, reason: reason)
+          Logger.warning(%{event: "page_read_failed", path: rel_path, reason: reason})
           {:error, reason}
       end
     end
@@ -142,7 +137,7 @@ defmodule TemplateServer.TemplateReader.File do
         {:ok, content}
 
       {:error, reason} ->
-        Logger.warning("partial_reload_failed", filename: filename, reason: reason)
+        Logger.warning(%{event: "partial_reload_failed", filename: filename, reason: reason})
         {:error, reason}
     end
   end

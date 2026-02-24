@@ -7,7 +7,11 @@ defmodule Webserver.MixProject do
       version: "0.1.0",
       elixir: "~> 1.19",
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      dialyzer: [
+        files: ["lib"],
+        plt_add_apps: [:mix]
+      ]
     ]
   end
 
@@ -23,7 +27,9 @@ defmodule Webserver.MixProject do
   defp deps do
     [
       {:bandit, "~> 1.0"},
-      {:plug, "~> 1.0"}
+      {:plug, "~> 1.0"},
+      {:dialyxir, "~> 1.0", runtime: false},
+      {:credo, ">= 0.0.0", only: [:dev, :test], runtime: false}
     ]
   end
 end

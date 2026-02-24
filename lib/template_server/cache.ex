@@ -13,22 +13,34 @@ defmodule TemplateServer.Cache do
   require Logger
 
   defmodule State do
+    @moduledoc """
+    Internal state for the Cache GenServer.
+    """
     defstruct [:base_url, :check_interval, :partials, :pages, :stats, :last_check_at]
   end
 
   defmodule PartialEntry do
+    @moduledoc """
+    Cached entry for a partial file.
+    """
     defstruct [:content, :mtime]
 
     def new(content, mtime), do: %__MODULE__{content: content, mtime: mtime}
   end
 
   defmodule PageEntry do
+    @moduledoc """
+    Cached entry for a parsed page.
+    """
     defstruct [:parsed, :mtime]
 
     def new(parsed, mtime), do: %__MODULE__{parsed: parsed, mtime: mtime}
   end
 
   defmodule Stats do
+    @moduledoc """
+    Cache hit/miss/revalidation statistics.
+    """
     defstruct [:hits, :misses, :revalidations]
 
     def new, do: %__MODULE__{hits: 0, misses: 0, revalidations: 0}
@@ -102,69 +114,14 @@ defmodule TemplateServer.Cache do
   def handle_call({:get_page, path}, _from, state) do
     cache_key = "pages/#{path}"
     now = System.system_time(:millisecond)
-    should_revalidate = now - state.last_check_at >= state.check_interval
-
     partials = build_partials_map(state.partials)
 
     case Map.fetch(state.pages, cache_key) do
       {:ok, %PageEntry{parsed: parsed, mtime: cached_mtime}} ->
-        if should_revalidate and mtime_changed?(state.base_url, cache_key, cached_mtime) do
-          Logger.debug(%{event: "page_revalidation", path: path})
-
-          case TemplateReader.read_page(state.base_url, path) do
-            {:ok, content} ->
-              case parse_page(content, partials, state.base_url) do
-                {:ok, new_parsed} ->
-                  current_mtime = mtime_for_file(state.base_url, cache_key)
-                  new_page = PageEntry.new(new_parsed, current_mtime)
-                  new_pages = Map.put(state.pages, cache_key, new_page)
-                  new_stats = Stats.increment(state.stats, :revalidations)
-                  new_state = %{state | pages: new_pages, stats: new_stats, last_check_at: now}
-                  {:reply, {:ok, new_parsed}, new_state}
-
-                {:error, _} ->
-                  new_stats = Stats.increment(state.stats, :misses)
-                  new_state = %{state | stats: new_stats, last_check_at: now}
-                  {:reply, {:error, :not_found}, new_state}
-              end
-
-            {:error, _} ->
-              new_stats = Stats.increment(state.stats, :misses)
-              new_state = %{state | stats: new_stats, last_check_at: now}
-              {:reply, {:error, :not_found}, new_state}
-          end
-        else
-          Logger.debug(%{event: "cache_hit", path: path})
-          new_stats = Stats.increment(state.stats, :hits)
-          new_state = %{state | stats: new_stats}
-          {:reply, {:ok, parsed}, new_state}
-        end
+        handle_cached_page(path, cache_key, parsed, cached_mtime, state, partials, now)
 
       :error ->
-        Logger.debug(%{event: "cache_miss", path: path})
-
-        case TemplateReader.read_page(state.base_url, path) do
-          {:ok, content} ->
-            case parse_page(content, partials, state.base_url) do
-              {:ok, parsed} ->
-                mtime = mtime_for_file(state.base_url, cache_key)
-                new_page = PageEntry.new(parsed, mtime)
-                new_pages = Map.put(state.pages, cache_key, new_page)
-                new_stats = Stats.increment(state.stats, :misses)
-                new_state = %{state | pages: new_pages, stats: new_stats, last_check_at: now}
-                {:reply, {:ok, parsed}, new_state}
-
-              {:error, _} ->
-                new_stats = Stats.increment(state.stats, :misses)
-                new_state = %{state | stats: new_stats, last_check_at: now}
-                {:reply, {:error, :not_found}, new_state}
-            end
-
-          {:error, _} ->
-            new_stats = Stats.increment(state.stats, :misses)
-            new_state = %{state | stats: new_stats, last_check_at: now}
-            {:reply, {:error, :not_found}, new_state}
-        end
+        handle_cache_miss(path, cache_key, state, partials, now)
     end
   end
 
@@ -205,6 +162,79 @@ defmodule TemplateServer.Cache do
         Logger.error(%{event: "cache_refresh_failed", reason: reason})
         {:reply, {:error, reason}, state}
     end
+  end
+
+  defp handle_cached_page(path, cache_key, parsed, cached_mtime, state, partials, now) do
+    should_revalidate = now - state.last_check_at >= state.check_interval
+
+    if should_revalidate and mtime_changed?(state.base_url, cache_key, cached_mtime) do
+      Logger.debug(%{event: "page_revalidation", path: path})
+
+      case TemplateReader.read_page(state.base_url, path) do
+        {:ok, content} ->
+          revalidate_page(cache_key, content, state, partials, now)
+
+        {:error, _} ->
+          record_miss(state, now)
+      end
+    else
+      Logger.debug(%{event: "cache_hit", path: path})
+      record_hit(parsed, state)
+    end
+  end
+
+  defp handle_cache_miss(path, cache_key, state, partials, now) do
+    Logger.debug(%{event: "cache_miss", path: path})
+
+    case TemplateReader.read_page(state.base_url, path) do
+      {:ok, content} ->
+        cache_new_page(cache_key, content, state, partials, now)
+
+      {:error, _} ->
+        record_miss(state, now)
+    end
+  end
+
+  defp revalidate_page(cache_key, content, state, partials, now) do
+    case parse_page(content, partials, state.base_url) do
+      {:ok, new_parsed} ->
+        current_mtime = mtime_for_file(state.base_url, cache_key)
+        new_page = PageEntry.new(new_parsed, current_mtime)
+        new_pages = Map.put(state.pages, cache_key, new_page)
+        new_stats = Stats.increment(state.stats, :revalidations)
+        new_state = %{state | pages: new_pages, stats: new_stats, last_check_at: now}
+        {:reply, {:ok, new_parsed}, new_state}
+
+      {:error, _} ->
+        record_miss(state, now)
+    end
+  end
+
+  defp cache_new_page(cache_key, content, state, partials, now) do
+    case parse_page(content, partials, state.base_url) do
+      {:ok, parsed} ->
+        mtime = mtime_for_file(state.base_url, cache_key)
+        new_page = PageEntry.new(parsed, mtime)
+        new_pages = Map.put(state.pages, cache_key, new_page)
+        new_stats = Stats.increment(state.stats, :misses)
+        new_state = %{state | pages: new_pages, stats: new_stats, last_check_at: now}
+        {:reply, {:ok, parsed}, new_state}
+
+      {:error, _} ->
+        record_miss(state, now)
+    end
+  end
+
+  defp record_hit(parsed, state) do
+    new_stats = Stats.increment(state.stats, :hits)
+    new_state = %{state | stats: new_stats}
+    {:reply, {:ok, parsed}, new_state}
+  end
+
+  defp record_miss(state, now) do
+    new_stats = Stats.increment(state.stats, :misses)
+    new_state = %{state | stats: new_stats, last_check_at: now}
+    {:reply, {:error, :not_found}, new_state}
   end
 
   defp build_partials_map(partials) do

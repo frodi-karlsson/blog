@@ -16,9 +16,12 @@ defmodule Parser do
   Returns {:ok, content} or {:error, reason}
   """
   def parse(parse_input) do
-    with {:ok, processed_file} <- process_slots(parse_input.file, parse_input),
-         {:ok, result} <- process_self_closing(processed_file, parse_input) do
-      {:ok, result}
+    case process_slots(parse_input.file, parse_input) do
+      {:ok, processed_file} ->
+        process_self_closing(processed_file, parse_input)
+
+      error ->
+        error
     end
   end
 
@@ -31,16 +34,22 @@ defmodule Parser do
         name = binary_part(file, name_start, name_len)
         content = binary_part(file, content_start, content_len)
 
-        case render_partial(name, content, parse_input) do
-          {:ok, rendered} ->
-            prefix = if start > 0, do: binary_part(file, 0, start), else: ""
-            suffix = binary_part(file, start + len, byte_size(file) - (start + len))
-            processed = prefix <> rendered <> suffix
-            process_slots(processed, parse_input)
-
-          error ->
-            error
+        case render_and_replace_slot(name, content, parse_input, file, start, len) do
+          {:ok, processed} -> process_slots(processed, parse_input)
+          error -> error
         end
+    end
+  end
+
+  defp render_and_replace_slot(name, content, parse_input, file, start, len) do
+    case render_partial(name, content, parse_input) do
+      {:ok, rendered} ->
+        prefix = if start > 0, do: binary_part(file, 0, start), else: ""
+        suffix = binary_part(file, start + len, byte_size(file) - (start + len))
+        {:ok, prefix <> rendered <> suffix}
+
+      error ->
+        error
     end
   end
 
@@ -49,24 +58,24 @@ defmodule Parser do
 
     case Parser.Resolver.resolve_partial_reference(partial_name, parse_input) do
       partial when is_binary(partial) ->
-        {_content, slot_map} = extract_named_slots(raw_content, parse_input)
-        expected_slots = extract_expected_slots(partial)
-
-        case validate_slots(expected_slots, slot_map) do
-          :ok ->
-            rendered = replace_slots(partial, slot_map, expected_slots)
-
-            case process_self_closing(rendered, parse_input) do
-              {:ok, processed} -> {:ok, processed}
-              error -> error
-            end
-
-          error ->
-            error
-        end
+        render_partial_with_slots(partial, raw_content, parse_input)
 
       nil ->
         {:error, {:ref_not_found, partial_name}}
+    end
+  end
+
+  defp render_partial_with_slots(partial, raw_content, parse_input) do
+    {_content, slot_map} = extract_named_slots(raw_content, parse_input)
+    expected_slots = extract_expected_slots(partial)
+
+    case validate_slots(expected_slots, slot_map) do
+      :ok ->
+        rendered = replace_slots(partial, slot_map, expected_slots)
+        process_self_closing(rendered, parse_input)
+
+      error ->
+        error
     end
   end
 
