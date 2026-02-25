@@ -38,10 +38,10 @@ defmodule Webserver.TemplateServer.TemplateReader.Sandbox do
      }}
   end
 
-  def get_partials(_base_url), do: {:error, :not_found}
+  def get_partials(_template_dir), do: {:error, :not_found}
 
   @impl true
-  def read_page(_base_url, path) do
+  def read_page(_template_dir, path) do
     case path do
       "index.html" ->
         {:ok,
@@ -80,11 +80,7 @@ defmodule Webserver.TemplateServer.TemplateReader.Sandbox do
   end
 
   @impl true
-  def read_partial(_base_url, filename) when is_binary(filename),
-    do: {:ok, "<partial>#{filename}</partial>"}
-
-  @impl true
-  def read_manifest(_base_url) do
+  def read_manifest(_template_dir) do
     {:ok,
      Jason.encode!([
        %{
@@ -98,7 +94,7 @@ defmodule Webserver.TemplateServer.TemplateReader.Sandbox do
   end
 
   @impl true
-  def read_pages_manifest(_base_url) do
+  def read_pages_manifest(_template_dir) do
     {:ok,
      Jason.encode!([
        %{
@@ -113,4 +109,7 @@ defmodule Webserver.TemplateServer.TemplateReader.Sandbox do
        }
      ])}
   end
+
+  @impl true
+  def file_mtime(_template_dir, _relative_path), do: {{2024, 1, 1}, {0, 0, 0}}
 end

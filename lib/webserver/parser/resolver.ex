@@ -13,8 +13,8 @@ defmodule Webserver.Parser.Resolver do
   end
 
   @spec resolve_page(String.t(), String.t()) :: {:ok, String.t()} | {:error, :not_found}
-  def resolve_page(string, base_url) do
-    case resolve_path(["pages", String.trim(string)], base_url) do
+  def resolve_page(string, template_dir) do
+    case resolve_path(["pages", String.trim(string)], template_dir) do
       {:ok, key} -> {:ok, key}
       :error -> {:error, :not_found}
     end

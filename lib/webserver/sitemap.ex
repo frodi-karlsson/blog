@@ -7,8 +7,10 @@ defmodule Webserver.Sitemap do
 
   alias Webserver.TemplateServer.Cache
 
+  @impl true
   def init(opts), do: opts
 
+  @impl true
   def call(conn, _opts) do
     pages = Cache.get_sitemap()
     base_url = Application.get_env(:webserver, :external_url, "https://example.com")

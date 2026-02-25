@@ -55,7 +55,7 @@ defmodule Webserver.ServerTest do
       assert {:error, {:missing_slots, ["title"]}} =
                Parser.parse(%ParseInput{
                  file: file,
-                 base_url: "/test",
+                 template_dir: "/test",
                  partials: partials
                })
     end
@@ -77,7 +77,7 @@ defmodule Webserver.ServerTest do
       assert {:error, {:unexpected_slots, ["extra"]}} =
                Parser.parse(%ParseInput{
                  file: file,
-                 base_url: "/test",
+                 template_dir: "/test",
                  partials: partials
                })
     end

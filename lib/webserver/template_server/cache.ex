@@ -17,8 +17,8 @@ defmodule Webserver.TemplateServer.Cache do
   end
 
   @spec start_link({String.t(), non_neg_integer(), module()}) :: GenServer.on_start()
-  def start_link({base_url, check_interval, reader}) do
-    GenServer.start_link(__MODULE__, {base_url, check_interval, reader, __MODULE__},
+  def start_link({template_dir, check_interval, reader}) do
+    GenServer.start_link(__MODULE__, {template_dir, check_interval, reader, __MODULE__},
       name: __MODULE__
     )
   end
@@ -71,7 +71,7 @@ defmodule Webserver.TemplateServer.Cache do
   def force_refresh(server \\ __MODULE__), do: GenServer.call(server, :force_refresh)
 
   defp handle_maybe_stale(table, server, path, entry) do
-    [{:config, {_base_url, interval, _reader}}] = :ets.lookup(table, :config)
+    [{:config, {_template_dir, interval, _reader}}] = :ets.lookup(table, :config)
     now = System.system_time(:millisecond)
 
     if interval == 0 or now - entry.last_checked_at >= interval do
@@ -84,7 +84,7 @@ defmodule Webserver.TemplateServer.Cache do
   end
 
   @impl true
-  def init({base_url, check_interval, reader, table}) do
+  def init({template_dir, check_interval, reader, table}) do
     :ets.new(table, [
       :set,
       :public,
@@ -93,14 +93,14 @@ defmodule Webserver.TemplateServer.Cache do
       write_concurrency: :auto
     ])
 
-    :ets.insert(table, {:config, {base_url, check_interval, reader}})
+    :ets.insert(table, {:config, {template_dir, check_interval, reader}})
     :ets.insert(table, {:stats_hits, 0})
     :ets.insert(table, {:stats_misses, 0})
     :ets.insert(table, {:stats_revalidations, 0})
 
-    Logger.info(%{event: "cache_initializing", base_url: base_url, reader: reader})
+    Logger.info(%{event: "cache_initializing", template_dir: template_dir, reader: reader})
 
-    case reader.get_partials(base_url) do
+    case reader.get_partials(template_dir) do
       {:ok, partials} ->
         Enum.each(partials, fn {key, content} ->
           :ets.insert(table, {{:partial, key}, content})
@@ -108,7 +108,7 @@ defmodule Webserver.TemplateServer.Cache do
 
         state = %{
           table: table,
-          base_url: base_url,
+          template_dir: template_dir,
           check_interval: check_interval,
           reader: reader
         }
@@ -176,7 +176,7 @@ defmodule Webserver.TemplateServer.Cache do
 
   @impl true
   def handle_call(:force_refresh, _from, state) do
-    case state.reader.get_partials(state.base_url) do
+    case state.reader.get_partials(state.template_dir) do
       {:ok, partials} ->
         :ets.match_delete(state.table, {{:page, :_}, :_})
         :ets.insert(state.table, {:stats_hits, 0})
@@ -200,11 +200,11 @@ defmodule Webserver.TemplateServer.Cache do
   defp do_fetch_and_cache(path, state) do
     now = System.system_time(:millisecond)
 
-    case state.reader.read_page(state.base_url, path) do
+    case state.reader.read_page(state.template_dir, path) do
       {:ok, content} ->
         case parse_page(content, state) do
           {:ok, parsed} ->
-            mtime = mtime_for_file(state.base_url, "pages/#{path}")
+            mtime = mtime_for_file(state, "pages/#{path}")
             entry = %PageEntry{parsed: parsed, mtime: mtime, last_checked_at: now}
             :ets.insert(state.table, {{:page, path}, entry})
             {:reply, {:ok, parsed}, state}
@@ -219,7 +219,7 @@ defmodule Webserver.TemplateServer.Cache do
   end
 
   defp do_revalidate(path, entry, now, state) do
-    new_mtime = mtime_for_file(state.base_url, "pages/#{path}")
+    new_mtime = mtime_for_file(state, "pages/#{path}")
 
     if new_mtime != entry.mtime do
       perform_revalidation(path, new_mtime, now, state)
@@ -240,7 +240,7 @@ defmodule Webserver.TemplateServer.Cache do
 
     safe_update_counter(state.table, :stats_revalidations)
 
-    case state.reader.read_page(state.base_url, path) do
+    case state.reader.read_page(state.template_dir, path) do
       {:ok, content} ->
         case parse_page(content, state) do
           {:ok, parsed} ->
@@ -273,11 +273,16 @@ defmodule Webserver.TemplateServer.Cache do
     partial_key = "partials/generated_blog_items.html"
 
     rendered_items =
-      case state.reader.read_manifest(state.base_url) do
+      case state.reader.read_manifest(state.template_dir) do
         {:ok, json} ->
-          posts = Jason.decode!(json)
-          item_partial = get_partial(state.table, "partials/blog_index_item.html")
-          Enum.map_join(posts, "\n", &render_if_exists(&1, item_partial, state))
+          case Jason.decode(json) do
+            {:ok, posts} ->
+              Enum.map_join(posts, "\n", &render_blog_item_if_exists(&1, state))
+
+            {:error, reason} ->
+              Logger.warning(%{event: "blog_manifest_decode_failed", reason: reason})
+              ""
+          end
 
         _ ->
           ""
@@ -288,9 +293,19 @@ defmodule Webserver.TemplateServer.Cache do
 
   defp generate_page_registry(state) do
     pages =
-      case state.reader.read_pages_manifest(state.base_url) do
-        {:ok, json} -> Jason.decode!(json)
-        _ -> []
+      case state.reader.read_pages_manifest(state.template_dir) do
+        {:ok, json} ->
+          case Jason.decode(json) do
+            {:ok, decoded} ->
+              decoded
+
+            {:error, reason} ->
+              Logger.warning(%{event: "pages_manifest_decode_failed", reason: reason})
+              []
+          end
+
+        _ ->
+          []
       end
 
     valid_pages = Enum.filter(pages, &page_exists?(&1, state))
@@ -298,34 +313,38 @@ defmodule Webserver.TemplateServer.Cache do
   end
 
   defp page_exists?(%{"id" => id}, state) do
-    case state.reader.read_page(state.base_url, "#{id}.html") do
+    case state.reader.read_page(state.template_dir, "#{id}.html") do
       {:ok, _} -> true
       _ -> false
     end
   end
 
-  defp render_if_exists(%{"id" => id} = post, partial, state) do
-    case state.reader.read_page(state.base_url, "#{id}.html") do
-      {:ok, _} -> render_item(partial, post)
+  defp render_blog_item_if_exists(%{"id" => id} = post, state) do
+    case state.reader.read_page(state.template_dir, "#{id}.html") do
+      {:ok, _} -> render_blog_item(post, state)
       _ -> ""
     end
   end
 
-  defp render_item(partial, post) do
-    partial
-    |> String.replace("{{category}}", post["category"] || "")
-    |> String.replace("{{date}}", post["date"] || "")
-    |> String.replace("{{url}}", "/#{post["id"]}")
-    |> String.replace("{{title}}", post["title"] || "")
-    |> String.replace("{{summary}}", post["summary"] || "")
-  end
+  defp render_blog_item(post, state) do
+    template = """
+    <% blog_index_item.html %>
+    <slot:category>#{escape(post["category"])}</slot:category>
+    <slot:date>#{escape(post["date"])}</slot:date>
+    <slot:url>#{escape("/#{post["id"]}")}</slot:url>
+    <slot:title>#{escape(post["title"])}</slot:title>
+    <slot:summary>#{escape(post["summary"])}</slot:summary>
+    <%/ blog_index_item.html %>
+    """
 
-  defp get_partial(table, key) do
-    case :ets.lookup(table, {:partial, key}) do
-      [{_, content}] -> content
+    case parse_page(template, state) do
+      {:ok, html} -> html
       _ -> ""
     end
   end
+
+  defp escape(nil), do: ""
+  defp escape(value), do: Plug.HTML.html_escape(value)
 
   defp parse_page(content, state) do
     partials =
@@ -333,14 +352,11 @@ defmodule Webserver.TemplateServer.Cache do
       |> :ets.match({{:partial, :"$1"}, :"$2"})
       |> Map.new(fn [k, v] -> {k, v} end)
 
-    Parser.parse(%ParseInput{file: content, base_url: state.base_url, partials: partials})
+    Parser.parse(%ParseInput{file: content, template_dir: state.template_dir, partials: partials})
   end
 
-  defp mtime_for_file(base_url, relative_path) do
-    case File.stat(Path.join([base_url, relative_path])) do
-      {:ok, %{mtime: mtime}} -> mtime
-      {:error, _} -> nil
-    end
+  defp mtime_for_file(state, relative_path) do
+    state.reader.file_mtime(state.template_dir, relative_path)
   end
 
   defp table_for(server) when is_atom(server), do: server

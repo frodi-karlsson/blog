@@ -30,7 +30,7 @@ defmodule Webserver.MixProject do
       {:dart_sass, "~> 0.7"},
       {:fs, "~> 8.6"},
       {:dialyxir, "~> 1.0", runtime: false},
-      {:credo, ">= 0.0.0", only: [:dev, :test], runtime: false}
+      {:credo, "~> 1.0", only: [:dev, :test], runtime: false}
     ]
   end
 end

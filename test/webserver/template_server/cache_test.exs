@@ -5,12 +5,12 @@ defmodule Webserver.TemplateServer.CacheTest do
   alias Webserver.TemplateServer.TemplateReader.Sandbox
 
   defp start_cache(opts \\ []) do
-    base_url = Keyword.get(opts, :base_url, "/priv/templates")
+    template_dir = Keyword.get(opts, :template_dir, "/priv/templates")
     interval = Keyword.get(opts, :interval, 0)
     reader = Keyword.get(opts, :reader, Sandbox)
     name = :"test_cache_#{System.unique_integer([:positive])}"
 
-    {:ok, _pid} = GenServer.start_link(Cache, {base_url, interval, reader, name}, name: name)
+    {:ok, _pid} = GenServer.start_link(Cache, {template_dir, interval, reader, name}, name: name)
     name
   end
 

@@ -1,7 +1,7 @@
 defmodule Webserver.TemplateServer.TemplateReader.File do
   @moduledoc """
   Filesystem-based template reader. Reads templates from the directory
-  configured as `base_url`. Used in dev and prod environments.
+  configured as `template_dir`. Used in dev and prod environments.
   """
 
   @behaviour Webserver.TemplateServer.TemplateReader
@@ -11,8 +11,8 @@ defmodule Webserver.TemplateServer.TemplateReader.File do
   require Logger
 
   @impl true
-  def get_partials(base_url) do
-    dir = Path.join(base_url, "partials")
+  def get_partials(template_dir) do
+    dir = Path.join(template_dir, "partials")
 
     with {:ok, files} <- File.ls(dir) do
       Logger.debug(%{event: "reading_partials_dir", path: dir, file_count: length(files)})
@@ -23,9 +23,9 @@ defmodule Webserver.TemplateServer.TemplateReader.File do
   end
 
   @impl true
-  def read_page(base_url, path) do
-    with {:ok, rel_path} <- Resolver.resolve_page(path, base_url),
-         {:ok, content} <- File.read(Path.join(base_url, rel_path)) do
+  def read_page(template_dir, path) do
+    with {:ok, rel_path} <- Resolver.resolve_page(path, template_dir),
+         {:ok, content} <- File.read(Path.join(template_dir, rel_path)) do
       Logger.debug(%{event: "page_loaded", path: rel_path, size: byte_size(content)})
       {:ok, content}
     else
@@ -40,28 +40,21 @@ defmodule Webserver.TemplateServer.TemplateReader.File do
   end
 
   @impl true
-  def read_partial(base_url, filename) do
-    full_path = Path.join([base_url, "partials", filename])
+  def read_manifest(template_dir) do
+    File.read(Path.join(template_dir, "blog.json"))
+  end
 
-    case File.read(full_path) do
-      {:ok, content} ->
-        Logger.debug(%{event: "partial_reloaded", filename: filename, size: byte_size(content)})
-        {:ok, content}
+  @impl true
+  def read_pages_manifest(template_dir) do
+    File.read(Path.join(template_dir, "pages.json"))
+  end
 
-      {:error, reason} ->
-        Logger.warning(%{event: "partial_reload_failed", filename: filename, reason: reason})
-        {:error, reason}
+  @impl true
+  def file_mtime(template_dir, relative_path) do
+    case File.stat(Path.join([template_dir, relative_path])) do
+      {:ok, %{mtime: mtime}} -> mtime
+      {:error, _} -> nil
     end
-  end
-
-  @impl true
-  def read_manifest(base_url) do
-    File.read(Path.join(base_url, "blog.json"))
-  end
-
-  @impl true
-  def read_pages_manifest(base_url) do
-    File.read(Path.join(base_url, "pages.json"))
   end
 
   defp read_partial_files(dir, files) do

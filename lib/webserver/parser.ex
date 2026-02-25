@@ -20,7 +20,7 @@ defmodule Webserver.Parser do
   @spec parse(ParseInput.t()) :: parse_result()
   def parse(parse_input) do
     start_time = System.monotonic_time()
-    metadata = %{base_url: parse_input.base_url}
+    metadata = %{template_dir: parse_input.template_dir}
 
     :telemetry.execute(
       [:webserver, :parser, :start],
@@ -81,13 +81,18 @@ defmodule Webserver.Parser do
   end
 
   defp render_partial_with_slots(partial, raw_content, parse_input) do
-    {_content, slot_map} = extract_named_slots(raw_content, parse_input)
-    expected_slots = extract_expected_slots(partial)
+    case extract_named_slots(raw_content, parse_input) do
+      {:ok, _content, slot_map} ->
+        expected_slots = extract_expected_slots(partial)
 
-    case validate_slots(expected_slots, slot_map) do
-      :ok ->
-        rendered = replace_slots(partial, slot_map, expected_slots)
-        process_self_closing(rendered, parse_input)
+        case validate_slots(expected_slots, slot_map) do
+          :ok ->
+            rendered = replace_slots(partial, slot_map, expected_slots)
+            process_self_closing(rendered, parse_input)
+
+          error ->
+            error
+        end
 
       error ->
         error
@@ -123,23 +128,18 @@ defmodule Webserver.Parser do
   defp extract_named_slots(content, parse_input) do
     case Regex.run(@named_slot_regex, content, return: :index) do
       nil ->
-        {content, %{}}
+        {:ok, content, %{}}
 
       [{slot_start, slot_len}, {name_start, name_len}, {content_start, content_len}] ->
         slot_name = binary_part(content, name_start, name_len)
         slot_content = binary_part(content, content_start, content_len)
-
-        processed =
-          case process_slots(slot_content, parse_input) do
-            {:ok, p} -> p
-            {:error, _} -> slot_content
-          end
-
         full_match = binary_part(content, slot_start, slot_len)
         new_content = String.replace(content, full_match, "{{#{slot_name}}}", global: false)
 
-        {remaining, more_slots} = extract_named_slots(new_content, parse_input)
-        {remaining, Map.put(more_slots, slot_name, processed)}
+        with {:ok, processed} <- process_slots(slot_content, parse_input),
+             {:ok, remaining, more_slots} <- extract_named_slots(new_content, parse_input) do
+          {:ok, remaining, Map.put(more_slots, slot_name, processed)}
+        end
     end
   end
 

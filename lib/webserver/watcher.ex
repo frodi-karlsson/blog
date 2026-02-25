@@ -12,14 +12,14 @@ defmodule Webserver.Watcher do
     GenServer.start_link(__MODULE__, args, name: __MODULE__)
   end
 
-  def init(_args) do
-    if Application.get_env(:webserver, :live_reload) do
+  def init({base_url, live_reload?}) do
+    if live_reload? do
       :fs.subscribe()
-      base_url = Application.get_env(:webserver, :base_url)
-      :fs.start_link(:template_watcher, Path.expand(base_url))
+      expanded = Path.expand(base_url)
+      :fs.start_link(:template_watcher, expanded)
       :fs.start_link(:static_watcher, Path.expand("priv/static"))
 
-      {:ok, %{base_url: Path.expand(base_url)}}
+      {:ok, %{base_url: expanded}}
     else
       :ignore
     end

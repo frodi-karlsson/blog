@@ -6,8 +6,8 @@ defmodule Webserver.Parser.ParseInput do
   @type t :: %__MODULE__{
           file: String.t(),
           partials: %{String.t() => String.t()},
-          base_url: String.t()
+          template_dir: String.t()
         }
 
-  defstruct [:file, :partials, :base_url]
+  defstruct [:file, :partials, :template_dir]
 end

@@ -82,7 +82,7 @@ defmodule Webserver.Server do
         error
     end
   rescue
-    _ -> {:error, :cache_unavailable}
+    ArgumentError -> {:error, :cache_unavailable}
   catch
     :exit, _ -> {:error, :cache_unavailable}
   end

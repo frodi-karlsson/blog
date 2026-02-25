@@ -5,12 +5,12 @@ defmodule Webserver.TemplateServer.TemplateReaderTest do
   alias Webserver.TemplateServer.TemplateReader.Sandbox
 
   describe "get_partials with Sandbox" do
-    test "returns partials for valid base_url" do
+    test "returns partials for valid template_dir" do
       {:ok, partials} = Sandbox.get_partials("/priv/templates")
       assert Map.has_key?(partials, "partials/layout.html")
     end
 
-    test "returns error for invalid base_url" do
+    test "returns error for invalid template_dir" do
       assert Sandbox.get_partials("/invalid/path") == {:error, :not_found}
     end
   end

@@ -13,34 +13,21 @@ defmodule Mix.Tasks.Check do
 
   @impl true
   def run(_args) do
-    IO.puts("Running format check...")
-    mix_formats()
-
-    IO.puts("\nRunning Credo...")
-    mix_credo()
-
-    IO.puts("\nRunning Dialyzer...")
-    mix_dialyzer()
-
-    IO.puts("\nRunning tests...")
-    mix_test()
+    run_step("format check", "mix", ["format", "--check-formatted"])
+    run_step("Credo", "mix", ["credo", "--strict"])
+    run_step("Dialyzer", "mix", ["dialyzer"])
+    run_step("tests", "mix", ["test"])
 
     IO.puts("\nAll checks passed!")
   end
 
-  defp mix_formats do
-    {_, 0} = System.cmd("mix", ["format", "--check-formatted"])
-  end
+  defp run_step(label, cmd, args) do
+    IO.puts("\nRunning #{label}...")
+    {output, code} = System.cmd(cmd, args, stderr_to_stdout: true)
 
-  defp mix_credo do
-    {_, 0} = System.cmd("mix", ["credo", "--strict"])
-  end
-
-  defp mix_dialyzer do
-    {_output, 0} = System.cmd("mix", ["dialyzer"])
-  end
-
-  defp mix_test do
-    {_, 0} = System.cmd("mix", ["test"])
+    if code != 0 do
+      IO.puts(output)
+      Mix.raise("#{label} failed (exit code #{code})")
+    end
   end
 end

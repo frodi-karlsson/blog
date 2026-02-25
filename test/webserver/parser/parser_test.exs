@@ -20,7 +20,7 @@ defmodule Webserver.ParserTest do
             </head>
           """
         },
-        base_url: "/priv/templates",
+        template_dir: "/priv/templates",
         output:
           {:ok,
            ~S"""
@@ -40,7 +40,7 @@ defmodule Webserver.ParserTest do
           </html>
         """,
         partials: %{},
-        base_url: "/priv/templates",
+        template_dir: "/priv/templates",
         output:
           {:ok,
            ~S"""
@@ -57,7 +57,7 @@ defmodule Webserver.ParserTest do
           </html>
         """,
         partials: %{},
-        base_url: "/priv/templates",
+        template_dir: "/priv/templates",
         output: {:error, {:ref_not_found, "missing.html"}}
       },
       %{
@@ -67,7 +67,7 @@ defmodule Webserver.ParserTest do
         partials: %{
           "partials/card.html" => "<div>{{default}}</div>"
         },
-        base_url: "/priv/templates",
+        template_dir: "/priv/templates",
         output: {:ok, "<html><div>Hello World</div></html>"}
       },
       %{
@@ -77,7 +77,7 @@ defmodule Webserver.ParserTest do
           "partials/card.html" => "<div>{{default}}</div>",
           "partials/head.html" => "<head><title>Test</title></head>"
         },
-        base_url: "/priv/templates",
+        template_dir: "/priv/templates",
         output: {:ok, "<div><head><title>Test</title></head></div>"}
       },
       %{
@@ -87,7 +87,7 @@ defmodule Webserver.ParserTest do
         partials: %{
           "partials/card.html" => "<div>\n{{default}}\n</div>"
         },
-        base_url: "/priv/templates",
+        template_dir: "/priv/templates",
         output: {:ok, "<html><div>\nLine 1\nLine 2\nLine 3\n</div></html>"}
       },
       %{
@@ -97,7 +97,7 @@ defmodule Webserver.ParserTest do
         partials: %{
           "partials/card.html" => "<div>{{default}}</div>"
         },
-        base_url: "/priv/templates",
+        template_dir: "/priv/templates",
         output: {:ok, "<html><div>First</div><div>Second</div></html>"}
       },
       %{
@@ -108,7 +108,7 @@ defmodule Webserver.ParserTest do
           "partials/head.html" => "<head/>",
           "partials/card.html" => "<div>{{default}}</div>"
         },
-        base_url: "/priv/templates",
+        template_dir: "/priv/templates",
         output: {:ok, "<html><head/><div>Hello</div></html>"}
       },
       %{
@@ -117,7 +117,7 @@ defmodule Webserver.ParserTest do
         partials: %{
           "partials/card.html" => "<div><div>{{body}}</div></div>"
         },
-        base_url: "/priv/templates",
+        template_dir: "/priv/templates",
         output: {:ok, "<html><div><div>Content</div></div></html>"}
       },
       %{
@@ -127,7 +127,7 @@ defmodule Webserver.ParserTest do
         partials: %{
           "partials/layout.html" => "<div>{{header}}{{body}}</div>"
         },
-        base_url: "/priv/templates",
+        template_dir: "/priv/templates",
         output: {:ok, "<html><div>HeaderBody</div></html>"}
       },
       %{
@@ -138,7 +138,7 @@ defmodule Webserver.ParserTest do
           "partials/site.html" => "<div>{{header}}</div>",
           "partials/logo.html" => "<span>Logo</span>"
         },
-        base_url: "/priv/templates",
+        template_dir: "/priv/templates",
         output: {:ok, "<html><div><span>Logo</span></div></html>"}
       },
       %{
@@ -149,7 +149,7 @@ defmodule Webserver.ParserTest do
           "partials/outer.html" => "<outer>{{inner}}</outer>",
           "partials/inner.html" => "<inner>{{deep}}</inner>"
         },
-        base_url: "/priv/templates",
+        template_dir: "/priv/templates",
         output: {:ok, "<outer><inner>Deep</inner></outer>"}
       },
       %{
@@ -158,7 +158,7 @@ defmodule Webserver.ParserTest do
         partials: %{
           "partials/card.html" => "<div>{{header}}{{body}}</div>"
         },
-        base_url: "/priv/templates",
+        template_dir: "/priv/templates",
         output: {:error, {:missing_slots, ["body", "header"]}}
       },
       %{
@@ -167,7 +167,7 @@ defmodule Webserver.ParserTest do
         partials: %{
           "partials/card.html" => "<div>{{body}}</div>"
         },
-        base_url: "/priv/templates",
+        template_dir: "/priv/templates",
         output: {:error, {:missing_slots, ["body"]}}
       }
     ]
@@ -180,7 +180,7 @@ defmodule Webserver.ParserTest do
           Parser.parse(%ParseInput{
             file: unquoted_test_case.input,
             partials: unquoted_test_case.partials,
-            base_url: unquoted_test_case.base_url
+            template_dir: unquoted_test_case.template_dir
           })
 
         assert result == unquoted_test_case.output
@@ -188,7 +188,7 @@ defmodule Webserver.ParserTest do
     end
 
     test "should handle empty file" do
-      result = Parser.parse(%ParseInput{file: "", partials: %{}, base_url: "/priv/templates"})
+      result = Parser.parse(%ParseInput{file: "", partials: %{}, template_dir: "/priv/templates"})
       assert result == {:ok, ""}
     end
   end

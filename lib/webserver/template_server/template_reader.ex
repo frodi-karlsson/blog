@@ -14,19 +14,20 @@ defmodule Webserver.TemplateServer.TemplateReader do
   @type partials :: %{String.t() => String.t()}
 
   @doc "Returns all partials as a map of `\"partials/filename.html\" => content`."
-  @callback get_partials(base_url :: String.t()) :: {:ok, partials()} | {:error, term()}
+  @callback get_partials(template_dir :: String.t()) :: {:ok, partials()} | {:error, term()}
 
   @doc "Reads the raw content of a single page file."
-  @callback read_page(base_url :: String.t(), path :: String.t()) ::
-              {:ok, String.t()} | {:error, term()}
-
-  @doc "Reads the raw content of a single partial file by filename."
-  @callback read_partial(base_url :: String.t(), filename :: String.t()) ::
+  @callback read_page(template_dir :: String.t(), path :: String.t()) ::
               {:ok, String.t()} | {:error, term()}
 
   @doc "Reads the blog manifest (JSON)."
-  @callback read_manifest(base_url :: String.t()) :: {:ok, String.t()} | {:error, term()}
+  @callback read_manifest(template_dir :: String.t()) :: {:ok, String.t()} | {:error, term()}
 
   @doc "Reads the pages manifest (JSON)."
-  @callback read_pages_manifest(base_url :: String.t()) :: {:ok, String.t()} | {:error, term()}
+  @callback read_pages_manifest(template_dir :: String.t()) ::
+              {:ok, String.t()} | {:error, term()}
+
+  @doc "Returns the mtime for a file relative to template_dir, or nil if unavailable."
+  @callback file_mtime(template_dir :: String.t(), relative_path :: String.t()) ::
+              :calendar.datetime() | nil
 end

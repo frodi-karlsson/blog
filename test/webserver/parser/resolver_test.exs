@@ -12,7 +12,7 @@ defmodule Webserver.ParserResolverTest do
         input: " head.html",
         parse_input: %ParseInput{
           partials: %{"partials/head.html" => "hello world"},
-          base_url: "/priv/templates",
+          template_dir: "/priv/templates",
           file: "index.html"
         },
         expected: "hello world"
@@ -22,7 +22,7 @@ defmodule Webserver.ParserResolverTest do
         input: " missing.html",
         parse_input: %ParseInput{
           partials: %{},
-          base_url: "",
+          template_dir: "",
           file: "index.html"
         },
         expected: nil
@@ -32,7 +32,7 @@ defmodule Webserver.ParserResolverTest do
         input: "  head.html  ",
         parse_input: %ParseInput{
           partials: %{"partials/head.html" => "content"},
-          base_url: "/priv/templates",
+          template_dir: "/priv/templates",
           file: "index.html"
         },
         expected: "content"
@@ -54,13 +54,13 @@ defmodule Webserver.ParserResolverTest do
       %{
         name: "resolve page path correctly",
         input: " index.html",
-        base_url: "/priv/templates",
+        template_dir: "/priv/templates",
         expected: {:ok, "pages/index.html"}
       },
       %{
         name: "handle nested paths",
         input: " about.html",
-        base_url: "/priv/templates",
+        template_dir: "/priv/templates",
         expected: {:ok, "pages/about.html"}
       }
     ]
@@ -68,7 +68,7 @@ defmodule Webserver.ParserResolverTest do
     for test_case <- @cases do
       test "should #{test_case.name}" do
         unquoted = unquote(Macro.escape(test_case))
-        assert Resolver.resolve_page(unquoted.input, unquoted.base_url) == unquoted.expected
+        assert Resolver.resolve_page(unquoted.input, unquoted.template_dir) == unquoted.expected
       end
     end
   end
