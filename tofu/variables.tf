@@ -28,8 +28,8 @@ variable "image_tag" {
 }
 
 variable "ssh_allowed_cidrs" {
-  type        = list(string)
-  default     = ["0.0.0.0/0", "::/0"]
+  type    = list(string)
+  default = ["0.0.0.0/0", "::/0"]
 }
 
 variable "admin_username" {
