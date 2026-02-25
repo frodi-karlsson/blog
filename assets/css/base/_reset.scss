@@ -36,3 +36,12 @@ a {
 .text-subtle {
   color: vars.$text-subtle;
 }
+
+img,
+video,
+canvas,
+svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}

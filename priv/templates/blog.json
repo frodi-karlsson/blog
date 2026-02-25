@@ -1,9 +1,9 @@
 [
   {
     "id": "building-an-elixir-webserver-from-scratch",
-    "title": "Building an Elixir Webserver from Scratch",
-    "date": "Feb 24, 2026",
+    "title": "How I Built This Blog from Scratch in Elixir",
+    "date": "Feb 25, 2026",
     "category": "Elixir",
-    "summary": "How I spent a few sick days building an Elixir webserver from scratch, and what I learned from it."
+    "summary": "A deep dive into the custom-built Elixir webserver powering this very page."
   }
 ]

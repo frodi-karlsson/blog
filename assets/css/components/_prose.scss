@@ -61,6 +61,22 @@
     }
   }
 
+  figure {
+    margin: vars.$space-12 0;
+
+    img {
+      border-radius: vars.$radius-base;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    figcaption {
+      margin-top: vars.$space-3;
+      font-size: 0.9em;
+      color: vars.$text-subtle;
+      text-align: center;
+    }
+  }
+
   &-footer {
     margin-top: vars.$space-12;
     padding-top: vars.$space-6;

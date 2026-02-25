@@ -1,31 +1,80 @@
 <% layout.html %>
-  <slot:title>Building an Elixir Webserver from Scratch</slot:title>
-  <slot:description>How I spent a few sick days building an Elixir webserver from scratch, and what I learned from it.</slot:description>
+  <slot:title>How I Built This Blog from Scratch in Elixir</slot:title>
+  <slot:description>A deep dive into the custom-built Elixir webserver powering this very page.</slot:description>
   <slot:canonical>https://blog.frodikarlsson.com/building-an-elixir-webserver-from-scratch</slot:canonical>
   <slot:og_type>article</slot:og_type>
   <slot:body>
     <% blog_post.html %>
       <slot:category>Elixir</slot:category>
-      <slot:date>Feb 24, 2026</slot:date>
-      <slot:title>Building an Elixir Webserver from Scratch</slot:title>
+      <slot:date>Feb 25, 2026</slot:date>
+      <slot:title>How I Built This Blog from Scratch in Elixir</slot:title>
       <slot:content>
-        <p>This blog runs on a webserver I wrote in Elixir. I built it while stuck in bed with nothing better to do. I didn't want to pull in a framework just to serve some HTML.</p>
+        <p>This blog isn't running on WordPress, Phoenix, or even a static site generator. It's running on a custom webserver I wrote in Elixir while stuck in bed with a cold. I didn't want to pull in a massive framework just to serve some HTML, so I built exactly what I needed.</p>
 
-        <p>Elixir doesn't have <a href="https://journal.stuffwithstuff.com/2015/02/01/what-color-is-your-function/" target="_blank" rel="noopener noreferrer">colored functions</a>. You don't think about async versus sync. The <a href="https://www.erlang.org/blog/a-brief-beam-primer/" target="_blank" rel="noopener noreferrer">BEAM</a> handles scheduling for you. It's one less thing to worry about.</p>
+        <p>I'm primarily a Node developer, but I've been wanting to explore Elixir and the BEAM. This project was the perfect excuse to dive in and see how it handles the basics of the web.</p>
 
-        <h2>Concurrency that makes sense</h2>
-        <p>You spawn processes instead of managing threads or async loops. Every request in this server gets its own process. If one crashes, the others keep going. The <a href="https://hexdocs.pm/elixir/Supervisor.html" target="_blank" rel="noopener noreferrer">supervisor</a> handles the restart.</p>
+        <h2>Performance on a Budget</h2>
+        <p>The entire application is hosted on the cheapest DigitalOcean droplet available for just <strong>$4 a month</strong>. Despite the minimal resources, it achieves near-perfect Lighthouse scores. The combination of Elixir's efficiency and a lack of client-side bloat makes it fly.</p>
 
-        <pre><code class="language-elixir">def start(_type, _args) do
-  children = [
-    Webserver.TemplateServer.Cache,
-    {Bandit, plug: Webserver.Router}
-  ]
-  Supervisor.start_link(children, strategy: :one_for_one)
+        <figure>
+          <img src="/static/img/web-vitals.png" alt="Web Vitals: Performance 98, Accessibility 100, Best Practices 96, SEO 100" />
+          <figcaption>Lighthouse scores for this very page.</figcaption>
+        </figure>
+
+        <h2>Routing Requests</h2>
+        <p>I used <a href="https://hexdocs.pm/plug/Plug.Router.html" target="_blank" rel="noopener noreferrer">Plug.Router</a> to handle the routing. It's a simple, declarative way to map paths to functions. Here's how the main router is structured:</p>
+
+        <pre><code class="language-elixir">defmodule Webserver.Router do
+  use Plug.Router
+  # ... imports and aliases ...
+
+  plug(Plug.RequestId)
+  plug(Plug.Logger)
+  plug(Plug.Static, at: "/static", from: {:webserver, "priv/static"})
+
+  plug(:match)
+  plug(:dispatch)
+
+  get "/health" do: json(conn, 200, %{status: "ok"})
+  get "/live-reload", to: Webserver.LiveReload
+  forward "/admin", to: AdminRouter
+  forward "/", to: Webserver.Server
+end</code></pre>
+
+        <h2>The Core Server Loop</h2>
+        <p>The main logic for serving pages lives in <code>Webserver.Server</code>. It takes the request path, looks it up in the cache, and returns the parsed HTML. If the page doesn't exist, it handles the 404 gracefully.</p>
+
+        <pre><code class="language-elixir">def call(conn, _opts) do
+  path = request_path(conn)
+  result = try_get_page(path)
+
+  case result do
+    {:ok, parsed} ->
+      conn
+      |> put_resp_content_type("text/html")
+      |> send_resp(200, parsed)
+    {:error, :not_found} ->
+      # Render custom 404 page...
+  end
+end</code></pre>
+
+        <h2>Caching with ETS</h2>
+        <p>To keep things fast, I use <a href="https://hexdocs.pm/elixir/main/ets.html" target="_blank" rel="noopener noreferrer">ETS</a> (Erlang Term Storage) for caching parsed templates. Multiple processes can read from the cache simultaneously without any locking, which is essential for high concurrency.</p>
+
+        <pre><code class="language-elixir">def get_page(server, path) do
+  table = table_for(server)
+
+  case :ets.lookup(table, {:page, path}) do
+    [{_, %PageEntry{} = entry}] ->
+      handle_maybe_stale(table, server, path, entry)
+
+    [] ->
+      GenServer.call(server, {:fetch_and_cache, path})
+  end
 end</code></pre>
 
         <h2>A Custom Templating Language</h2>
-        <p>I wrote a small templating system too. It supports partials and named slots. The parser is recursive regex, which sounds worse than it is. You get component-style HTML without a build pipeline.</p>
+        <p>I wanted a component-like experience without a heavy build step. I wrote a small templating system that supports partials and named slots using recursive regex. It allows me to define layouts and reuse components easily.</p>
 
         <pre><code class="language-html">&lt;% layout.html %&gt;
   &lt;slot:title&gt;My Page&lt;/slot:title&gt;
@@ -36,27 +85,19 @@ end</code></pre>
 &lt;%/ layout.html %&gt;</code></pre>
 
         <h2>Live Reload</h2>
-        <p>In development, the server watches the template and static directories using <a href="https://github.com/synrc/fs" target="_blank" rel="noopener noreferrer">fs</a>, an Erlang filesystem watcher. The browser keeps an SSE connection open to <code>/live-reload</code>. When a template changes, the cache entry gets invalidated and a reload signal goes out. CSS changes swap the stylesheets in place. Anything else triggers a full reload.</p>
+        <p>For a smooth development experience, I implemented live reloading. The server watches the filesystem using <a href="https://github.com/synrc/fs" target="_blank" rel="noopener noreferrer">fs</a>. The browser keeps an SSE connection open, and when a change is detected, the server sends a signal to reload the page or swap CSS in place.</p>
 
-        <h2>Caching with ETS</h2>
-        <p>Templates are cached in <a href="https://hexdocs.pm/elixir/main/ets.html" target="_blank" rel="noopener noreferrer">ETS</a>, an in-memory store built into the BEAM. Multiple processes can read from it simultaneously without blocking on each other. No external dependencies. The <a href="https://www.erlang.org/doc/man/ets.html" target="_blank" rel="noopener noreferrer">Erlang docs</a> have more detail if you're curious.</p>
-
-        <h2>Hosting</h2>
-        <p>The app runs in a Docker container on a DigitalOcean droplet behind Cloudflare. Deployments are automatic. When something merges to main, GitHub Actions builds and scans the image, then pushes it to GHCR. <a href="https://containrrr.dev/watchtower/" target="_blank" rel="noopener noreferrer">Watchtower</a> runs on the droplet and polls the registry every 30 seconds. New image means restart. No deploy scripts.</p>
-
-        <h2>Pattern Matching and Type Safety</h2>
-        <p>Elixir is dynamically typed, which I was skeptical of going in. Pattern matching and typespecs take the edge off. You write out what you expect and crash on anything else. The pipes and immutability make the logic easy to follow. I've had a lot of fun with it.</p>
+        <h2>Hosting and Deployment</h2>
+        <p>Deployment is fully automated with GitHub Actions and Docker. When I push to <code>main</code>, an image is built and pushed to GHCR. On the droplet, <a href="https://containrrr.dev/watchtower/" target="_blank" rel="noopener noreferrer">Watchtower</a> detects the new image and restarts the container within 30 seconds. No manual intervention required.</p>
 
         <h2>Elixir vs Node</h2>
-        <p>Most of my day job is TypeScript and Node. They work. The ecosystem is enormous, TypeScript handles large codebases well, and there's a library for everything. For most things it's the path of least resistance.</p>
+        <p>Most of my professional work is in TypeScript and Node. They are great tools, but where they often struggle is concurrency. Node's single-threaded event loop requires workarounds for heavy lifting. In Elixir, concurrency is a first-class citizen.</p>
 
-        <p>Where it gets awkward is concurrency. Node runs on a single thread with an event loop. You can work around it, but you're always working around it. Elixir doesn't have that problem. The BEAM schedules everything. You spawn processes. If one crashes, the supervisor restarts it and the rest keep going.</p>
+        <p>The Erlang VM (BEAM) is perfect for this kind of work. It doesn't have <a href="https://journal.stuffwithstuff.com/2015/02/01/what-color-is-your-function/" target="_blank" rel="noopener noreferrer">colored functions</a>. You don't think about async versus sync because the <a href="https://www.erlang.org/blog/a-brief-beam-primer/" target="_blank" rel="noopener noreferrer">BEAM</a> handles scheduling for you. Every request gets its own process, making it incredibly resilient and efficient. If a process crashes, the supervisor restarts it, and nothing else is affected.</p>
 
-        <p>For a blog server this doesn't matter much. But for anything that needs high concurrency, persistent connections, or background jobs that have to survive failures, I'd take the BEAM over Node every time.</p>
+        <p>Building this from scratch over the last few days has been a great way to learn Elixir. It's a powerful, elegant language that makes building resilient systems feel natural. It's definitely a tool I'll be reaching for again.</p>
 
-        <p>Node still has the bigger ecosystem, and I know it well. That counts for a lot. Familiarity means fewer surprises, faster debugging, and less time reading docs. It's the devil I know. For most projects that's reason enough to stick with it.</p>
-
-        <p>But next time I have a greenfield side project that needs any of the above, I'm probably reaching for Elixir first.</p>
+        <p>You can even <a href="https://github.com/frodi-karlsson/blog/blob/main/priv/templates/pages/building-an-elixir-webserver-from-scratch.html" target="_blank" rel="noopener noreferrer">view the source for this very page on GitHub</a> to see how the templating works in practice.</p>
       </slot:content>
     <%/ blog_post.html %>
   </slot:body>
