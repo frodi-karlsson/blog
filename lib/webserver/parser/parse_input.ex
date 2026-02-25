@@ -9,5 +9,5 @@ defmodule Webserver.Parser.ParseInput do
           template_dir: String.t()
         }
 
-  defstruct [:file, :partials, :template_dir]
+  defstruct file: nil, partials: %{}, template_dir: nil
 end

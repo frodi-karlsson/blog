@@ -8,6 +8,7 @@ defmodule Webserver.MixProject do
       elixir: "~> 1.19",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
+      aliases: aliases(),
       dialyzer: [
         plt_add_apps: [:mix]
       ]
@@ -19,6 +20,10 @@ defmodule Webserver.MixProject do
       extra_applications: [:logger],
       mod: {Webserver, []}
     ]
+  end
+
+  defp aliases do
+    [server: ["assets.build", "run --no-halt"]]
   end
 
   defp deps do

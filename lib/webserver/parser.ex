@@ -9,6 +9,7 @@ defmodule Webserver.Parser do
           {:ref_not_found, String.t()}
           | {:missing_slots, [String.t()]}
           | {:unexpected_slots, [String.t()]}
+          | {:unresolved_injection, String.t()}
 
   @type parse_result :: {:ok, String.t()} | {:error, parse_error()}
 
@@ -16,6 +17,7 @@ defmodule Webserver.Parser do
   @slot_regex ~r|<%\s*(.*?)\s*%>(.*?)<%/\s*\1\s*%>|s
   @named_slot_regex ~r|<slot:([a-z_]+)>(.*?)</slot:\1>|s
   @slot_placeholder_regex ~r|\{\{([a-z_]+)\}\}|
+  @manifest_tag_regex ~r|\{\%\s*([a-zA-Z0-9_\-/\.]+)\s*\%\}|
 
   @spec parse(ParseInput.t()) :: parse_result()
   def parse(parse_input) do
@@ -29,8 +31,10 @@ defmodule Webserver.Parser do
     )
 
     result =
-      case process_slots(parse_input.file, parse_input) do
-        {:ok, processed_file} -> process_self_closing(processed_file, parse_input)
+      with {:ok, processed_file} <- process_slots(parse_input.file, parse_input),
+           {:ok, content_after_self_closing} <- process_self_closing(processed_file, parse_input) do
+        resolve_injections(content_after_self_closing)
+      else
         error -> error
       end
 
@@ -38,6 +42,37 @@ defmodule Webserver.Parser do
     :telemetry.execute([:webserver, :parser, :stop], %{duration: duration}, metadata)
 
     result
+  end
+
+  defp resolve_injections(content) do
+    @manifest_tag_regex
+    |> Regex.scan(content, return: :index)
+    |> Enum.reverse()
+    |> Enum.reduce_while({:ok, content}, fn
+      [{match_start, match_len}, {key_start, key_len}], {:ok, acc} ->
+        injection_key = binary_part(content, key_start, key_len)
+
+        case resolve_manifest_path(injection_key) do
+          {:ok, resolved} ->
+            prefix = binary_part(acc, 0, match_start)
+
+            suffix =
+              binary_part(acc, match_start + match_len, byte_size(acc) - match_start - match_len)
+
+            {:cont, {:ok, prefix <> resolved <> suffix}}
+
+          {:error, :not_found} ->
+            {:halt, {:error, {:unresolved_injection, injection_key}}}
+        end
+    end)
+  end
+
+  defp resolve_manifest_path(manifest_key) do
+    if Application.get_env(:webserver, :live_reload, false) do
+      {:ok, manifest_key}
+    else
+      Webserver.AssetServer.resolve(manifest_key)
+    end
   end
 
   defp process_slots(file, parse_input) do

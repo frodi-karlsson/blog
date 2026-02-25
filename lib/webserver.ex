@@ -18,6 +18,7 @@ defmodule Webserver do
     children = [
       {Webserver.TemplateServer.Cache,
        {template_dir, mtime_check_interval, reader, live_reload?}},
+      Webserver.AssetServer,
       {Bandit, plug: Webserver.Router, scheme: :http, port: port}
     ]
 

@@ -15,11 +15,12 @@ RUN mix deps.compile
 COPY config config
 COPY assets assets
 COPY lib lib
-COPY priv priv
+COPY priv/templates priv/templates
 
 RUN mkdir -p priv/static/css && \
     mix sass.install && \
-    mix sass default
+    mix sass default && \
+    mix assets.build
 
 RUN mix compile --warnings-as-errors
 

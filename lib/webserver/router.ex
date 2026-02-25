@@ -13,6 +13,12 @@ defmodule Webserver.Router do
   alias Webserver.Server
   alias Webserver.Sitemap
 
+  @static_cache_control Application.compile_env(
+                          :webserver,
+                          :static_cache_control,
+                          "public, max-age=0, must-revalidate"
+                        )
+
   plug(Plug.RequestId)
   plug(Plug.Logger)
   plug(Plug.Head)
@@ -20,7 +26,8 @@ defmodule Webserver.Router do
   plug(Plug.Static,
     at: "/static",
     from: {:webserver, "priv/static"},
-    gzip: false
+    gzip: false,
+    headers: %{"cache-control" => @static_cache_control}
   )
 
   plug(:match)

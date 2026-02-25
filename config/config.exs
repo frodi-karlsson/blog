@@ -6,7 +6,8 @@ config :webserver,
   template_dir: "./priv/templates",
   external_url: "https://blog.frodikarlsson.com",
   mtime_check_interval: :timer.seconds(60),
-  live_reload: false
+  live_reload: false,
+  static_cache_control: "public, max-age=0, must-revalidate"
 
 config :dart_sass,
   version: "1.83.4",

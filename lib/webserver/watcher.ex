@@ -16,10 +16,12 @@ defmodule Webserver.Watcher do
     if live_reload? do
       :fs.subscribe()
       expanded = Path.expand(template_dir)
+      assets_static = Path.expand("assets/static")
       :fs.start_link(:template_watcher, expanded)
       :fs.start_link(:static_watcher, Path.expand("priv/static"))
+      :fs.start_link(:assets_watcher, assets_static)
 
-      {:ok, %{template_dir: expanded}}
+      {:ok, %{template_dir: expanded, assets_static_dir: assets_static}}
     else
       :ignore
     end
@@ -32,6 +34,9 @@ defmodule Webserver.Watcher do
       String.contains?(path_str, state.template_dir) ->
         handle_template_change(path_str, state.template_dir)
 
+      String.contains?(path_str, state.assets_static_dir) ->
+        handle_assets_static_change(path_str, state.assets_static_dir)
+
       String.ends_with?(path_str, ".css") ->
         broadcast_reload(:css)
 
@@ -43,6 +48,17 @@ defmodule Webserver.Watcher do
     end
 
     {:noreply, state}
+  end
+
+  defp handle_assets_static_change(path_str, assets_static_dir) do
+    if File.regular?(path_str) do
+      relative = Path.relative_to(path_str, assets_static_dir)
+      dest = Path.join(Path.expand("priv/static"), relative)
+      File.mkdir_p!(Path.dirname(dest))
+      File.cp!(path_str, dest)
+    end
+
+    broadcast_reload(:full)
   end
 
   defp handle_template_change(path, template_dir) do
