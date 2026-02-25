@@ -11,10 +11,10 @@
       <slot:content>
         <p>This blog runs on a webserver I wrote in Elixir. I built it while stuck in bed with nothing better to do. I didn't want to pull in a framework just to serve some HTML.</p>
 
-        <p>Elixir doesn't have <a href="https://journal.stuffwithstuff.com/2015/02/01/what-color-is-your-function/">colored functions</a>. You don't think about async versus sync. The <a href="https://www.erlang.org/blog/a-brief-beam-primer/">BEAM</a> handles scheduling for you. It's one less thing to worry about.</p>
+        <p>Elixir doesn't have <a href="https://journal.stuffwithstuff.com/2015/02/01/what-color-is-your-function/" target="_blank" rel="noopener noreferrer">colored functions</a>. You don't think about async versus sync. The <a href="https://www.erlang.org/blog/a-brief-beam-primer/" target="_blank" rel="noopener noreferrer">BEAM</a> handles scheduling for you. It's one less thing to worry about.</p>
 
         <h2>Concurrency that makes sense</h2>
-        <p>You spawn processes instead of managing threads or async loops. Every request in this server gets its own process. If one crashes, the others keep going. The <a href="https://hexdocs.pm/elixir/Supervisor.html">supervisor</a> handles the restart.</p>
+        <p>You spawn processes instead of managing threads or async loops. Every request in this server gets its own process. If one crashes, the others keep going. The <a href="https://hexdocs.pm/elixir/Supervisor.html" target="_blank" rel="noopener noreferrer">supervisor</a> handles the restart.</p>
 
         <pre><code class="language-elixir">def start(_type, _args) do
   children = [
@@ -36,13 +36,13 @@ end</code></pre>
 &lt;%/ layout.html %&gt;</code></pre>
 
         <h2>Live Reload</h2>
-        <p>In development, the server watches the template and static directories using <a href="https://github.com/synrc/fs">fs</a>, an Erlang filesystem watcher. The browser keeps an SSE connection open to <code>/live-reload</code>. When a template changes, the cache entry gets invalidated and a reload signal goes out. CSS changes swap the stylesheets in place. Anything else triggers a full reload.</p>
+        <p>In development, the server watches the template and static directories using <a href="https://github.com/synrc/fs" target="_blank" rel="noopener noreferrer">fs</a>, an Erlang filesystem watcher. The browser keeps an SSE connection open to <code>/live-reload</code>. When a template changes, the cache entry gets invalidated and a reload signal goes out. CSS changes swap the stylesheets in place. Anything else triggers a full reload.</p>
 
         <h2>Caching with ETS</h2>
-        <p>Templates are cached in <a href="https://hexdocs.pm/elixir/main/ets.html">ETS</a>, an in-memory store built into the BEAM. Multiple processes can read from it simultaneously without blocking on each other. No external dependencies. The <a href="https://www.erlang.org/doc/man/ets.html">Erlang docs</a> have more detail if you're curious.</p>
+        <p>Templates are cached in <a href="https://hexdocs.pm/elixir/main/ets.html" target="_blank" rel="noopener noreferrer">ETS</a>, an in-memory store built into the BEAM. Multiple processes can read from it simultaneously without blocking on each other. No external dependencies. The <a href="https://www.erlang.org/doc/man/ets.html" target="_blank" rel="noopener noreferrer">Erlang docs</a> have more detail if you're curious.</p>
 
         <h2>Hosting</h2>
-        <p>The app runs in a Docker container on a DigitalOcean droplet behind Cloudflare. Deployments are automatic. When something merges to main, GitHub Actions builds and scans the image, then pushes it to GHCR. <a href="https://containrrr.dev/watchtower/">Watchtower</a> runs on the droplet and polls the registry every 30 seconds. New image means restart. No deploy scripts.</p>
+        <p>The app runs in a Docker container on a DigitalOcean droplet behind Cloudflare. Deployments are automatic. When something merges to main, GitHub Actions builds and scans the image, then pushes it to GHCR. <a href="https://containrrr.dev/watchtower/" target="_blank" rel="noopener noreferrer">Watchtower</a> runs on the droplet and polls the registry every 30 seconds. New image means restart. No deploy scripts.</p>
 
         <h2>Pattern Matching and Type Safety</h2>
         <p>Elixir is dynamically typed, which I was skeptical of going in. Pattern matching and typespecs take the edge off. You write out what you expect and crash on anything else. The pipes and immutability make the logic easy to follow. I've had a lot of fun with it.</p>
