@@ -1,5 +1,5 @@
 defmodule Webserver.TemplateServer.TemplateReaderTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
 
   alias Webserver.TemplateServer.TemplateReader.File, as: FileReader
   alias Webserver.TemplateServer.TemplateReader.Sandbox
@@ -12,6 +12,22 @@ defmodule Webserver.TemplateServer.TemplateReaderTest do
 
     test "returns error for invalid template_dir" do
       assert Sandbox.get_partials("/invalid/path") == {:error, :not_found}
+    end
+  end
+
+  describe "read_manifest with Sandbox" do
+    test "reads blog manifest" do
+      {:ok, json} = Sandbox.read_manifest("/priv/templates")
+      assert is_binary(json)
+      assert String.contains?(json, "building-an-elixir-webserver-from-scratch")
+    end
+  end
+
+  describe "read_pages_manifest with Sandbox" do
+    test "reads pages manifest" do
+      {:ok, json} = Sandbox.read_pages_manifest("/priv/templates")
+      assert is_binary(json)
+      assert String.contains?(json, "index")
     end
   end
 

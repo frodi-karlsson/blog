@@ -4,6 +4,7 @@ defmodule Webserver.AdminRouter do
   Middleware for authentication can be added here.
   """
   use Plug.Router
+  import Webserver.ConnHelpers
 
   alias Webserver.Server
   alias Webserver.TemplateServer.Cache
@@ -34,10 +35,4 @@ defmodule Webserver.AdminRouter do
   # This catch-all inside the admin scope ensures admin templates are served
   # e.g. /admin/design-system -> index.html (with admin prefix)
   forward("/", to: Server)
-
-  defp json(conn, status, data) do
-    conn
-    |> put_resp_content_type("application/json")
-    |> send_resp(status, Jason.encode!(data))
-  end
 end

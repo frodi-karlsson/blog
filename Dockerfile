@@ -21,6 +21,8 @@ RUN mkdir -p priv/static/css && \
     mix sass.install && \
     mix sass default
 
+RUN mix compile --warnings-as-errors
+
 RUN mix release
 
 FROM debian:trixie-slim AS app
@@ -39,6 +41,6 @@ USER webserver
 
 EXPOSE 4040
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD wget -q --spider http://localhost:4040/health || exit 1
+    CMD ./bin/webserver eval "IO.puts(:ok)" || exit 1
 
 CMD ["bin/webserver", "start"]

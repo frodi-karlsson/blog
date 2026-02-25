@@ -8,6 +8,7 @@ defmodule Webserver.TemplateServer.Cache do
 
   alias Webserver.Parser
   alias Webserver.Parser.ParseInput
+  alias Webserver.TemplateServer.ContentGenerator
 
   require Logger
 
@@ -16,9 +17,11 @@ defmodule Webserver.TemplateServer.Cache do
     defstruct [:parsed, :mtime, :last_checked_at]
   end
 
-  @spec start_link({String.t(), non_neg_integer(), module()}) :: GenServer.on_start()
-  def start_link({template_dir, check_interval, reader}) do
-    GenServer.start_link(__MODULE__, {template_dir, check_interval, reader, __MODULE__},
+  @spec start_link({String.t(), non_neg_integer(), module(), boolean()}) :: GenServer.on_start()
+  def start_link({template_dir, check_interval, reader, live_reload?}) do
+    GenServer.start_link(
+      __MODULE__,
+      {template_dir, check_interval, reader, live_reload?, __MODULE__},
       name: __MODULE__
     )
   end
@@ -71,7 +74,7 @@ defmodule Webserver.TemplateServer.Cache do
   def force_refresh(server \\ __MODULE__), do: GenServer.call(server, :force_refresh)
 
   defp handle_maybe_stale(table, server, path, entry) do
-    [{:config, {_template_dir, interval, _reader}}] = :ets.lookup(table, :config)
+    [{:config, {_template_dir, interval, _reader, _live_reload?}}] = :ets.lookup(table, :config)
     now = System.system_time(:millisecond)
 
     if interval == 0 or now - entry.last_checked_at >= interval do
@@ -84,7 +87,7 @@ defmodule Webserver.TemplateServer.Cache do
   end
 
   @impl true
-  def init({template_dir, check_interval, reader, table}) do
+  def init({template_dir, check_interval, reader, live_reload?, table}) do
     :ets.new(table, [
       :set,
       :public,
@@ -93,33 +96,25 @@ defmodule Webserver.TemplateServer.Cache do
       write_concurrency: :auto
     ])
 
-    :ets.insert(table, {:config, {template_dir, check_interval, reader}})
+    :ets.insert(table, {:config, {template_dir, check_interval, reader, live_reload?}})
     :ets.insert(table, {:stats_hits, 0})
     :ets.insert(table, {:stats_misses, 0})
     :ets.insert(table, {:stats_revalidations, 0})
 
     Logger.info(%{event: "cache_initializing", template_dir: template_dir, reader: reader})
 
-    case reader.get_partials(template_dir) do
-      {:ok, partials} ->
-        Enum.each(partials, fn {key, content} ->
-          :ets.insert(table, {{:partial, key}, content})
-        end)
+    state = %{
+      table: table,
+      template_dir: template_dir,
+      check_interval: check_interval,
+      reader: reader,
+      live_reload?: live_reload?,
+      partials: %{}
+    }
 
-        state = %{
-          table: table,
-          template_dir: template_dir,
-          check_interval: check_interval,
-          reader: reader
-        }
-
-        generate_livereload_partial(state)
-        generate_blog_index(state)
-        generate_page_registry(state)
-        {:ok, state}
-
-      {:error, reason} ->
-        {:stop, reason}
+    case load_and_generate_all(state) do
+      {:ok, new_state} -> {:ok, new_state}
+      {:error, reason} -> {:stop, reason}
     end
   end
 
@@ -131,14 +126,14 @@ defmodule Webserver.TemplateServer.Cache do
 
   @impl true
   def handle_cast(:refresh_blog_index, state) do
-    generate_blog_index(state)
-    {:noreply, state}
+    new_state = do_generate_blog_index(state)
+    {:noreply, new_state}
   end
 
   @impl true
   def handle_cast(:refresh_page_registry, state) do
-    generate_page_registry(state)
-    {:noreply, state}
+    new_state = do_generate_page_registry(state)
+    {:noreply, new_state}
   end
 
   @impl true
@@ -176,24 +171,36 @@ defmodule Webserver.TemplateServer.Cache do
 
   @impl true
   def handle_call(:force_refresh, _from, state) do
+    :ets.match_delete(state.table, {{:page, :_}, :_})
+    :ets.insert(state.table, {:stats_hits, 0})
+    :ets.insert(state.table, {:stats_misses, 0})
+    :ets.insert(state.table, {:stats_revalidations, 0})
+
+    case load_and_generate_all(state) do
+      {:ok, new_state} -> {:reply, :ok, new_state}
+      {:error, reason} -> {:reply, {:error, reason}, state}
+    end
+  end
+
+  defp load_and_generate_all(state) do
     case state.reader.get_partials(state.template_dir) do
       {:ok, partials} ->
-        :ets.match_delete(state.table, {{:page, :_}, :_})
-        :ets.insert(state.table, {:stats_hits, 0})
-        :ets.insert(state.table, {:stats_misses, 0})
-        :ets.insert(state.table, {:stats_revalidations, 0})
-
         Enum.each(partials, fn {key, content} ->
           :ets.insert(state.table, {{:partial, key}, content})
         end)
 
-        generate_livereload_partial(state)
-        generate_blog_index(state)
-        generate_page_registry(state)
-        {:reply, :ok, state}
+        state = %{state | partials: partials}
+
+        state =
+          state
+          |> do_generate_livereload_partial()
+          |> do_generate_blog_index()
+          |> do_generate_page_registry()
+
+        {:ok, state}
 
       {:error, reason} ->
-        {:reply, {:error, reason}, state}
+        {:error, reason}
     end
   end
 
@@ -258,101 +265,32 @@ defmodule Webserver.TemplateServer.Cache do
     end
   end
 
-  defp generate_livereload_partial(state) do
-    script =
-      if Application.get_env(:webserver, :live_reload) do
-        ~S|<script src="/static/js/livereload.js"></script>|
-      else
-        ""
-      end
-
-    :ets.insert(state.table, {{:partial, "partials/generated_livereload_script.html"}, script})
+  defp do_generate_livereload_partial(state) do
+    key = "partials/generated_livereload_script.html"
+    script = ContentGenerator.generate_livereload_partial(state.live_reload?)
+    :ets.insert(state.table, {{:partial, key}, script})
+    %{state | partials: Map.put(state.partials, key, script)}
   end
 
-  defp generate_blog_index(state) do
-    partial_key = "partials/generated_blog_items.html"
-
-    rendered_items =
-      case state.reader.read_manifest(state.template_dir) do
-        {:ok, json} ->
-          case Jason.decode(json) do
-            {:ok, posts} ->
-              Enum.map_join(posts, "\n", &render_blog_item_if_exists(&1, state))
-
-            {:error, reason} ->
-              Logger.warning(%{event: "blog_manifest_decode_failed", reason: reason})
-              ""
-          end
-
-        _ ->
-          ""
-      end
-
-    :ets.insert(state.table, {{:partial, partial_key}, rendered_items})
+  defp do_generate_blog_index(state) do
+    key = "partials/generated_blog_items.html"
+    rendered = ContentGenerator.generate_blog_index(state, state.partials)
+    :ets.insert(state.table, {{:partial, key}, rendered})
+    %{state | partials: Map.put(state.partials, key, rendered)}
   end
 
-  defp generate_page_registry(state) do
-    pages =
-      case state.reader.read_pages_manifest(state.template_dir) do
-        {:ok, json} ->
-          case Jason.decode(json) do
-            {:ok, decoded} ->
-              decoded
-
-            {:error, reason} ->
-              Logger.warning(%{event: "pages_manifest_decode_failed", reason: reason})
-              []
-          end
-
-        _ ->
-          []
-      end
-
-    valid_pages = Enum.filter(pages, &page_exists?(&1, state))
-    :ets.insert(state.table, {:page_registry, valid_pages})
+  defp do_generate_page_registry(state) do
+    pages = ContentGenerator.generate_page_registry(state)
+    :ets.insert(state.table, {:page_registry, pages})
+    state
   end
-
-  defp page_exists?(%{"id" => id}, state) do
-    case state.reader.read_page(state.template_dir, "#{id}.html") do
-      {:ok, _} -> true
-      _ -> false
-    end
-  end
-
-  defp render_blog_item_if_exists(%{"id" => id} = post, state) do
-    case state.reader.read_page(state.template_dir, "#{id}.html") do
-      {:ok, _} -> render_blog_item(post, state)
-      _ -> ""
-    end
-  end
-
-  defp render_blog_item(post, state) do
-    template = """
-    <% blog_index_item.html %>
-    <slot:category>#{escape(post["category"])}</slot:category>
-    <slot:date>#{escape(post["date"])}</slot:date>
-    <slot:url>#{escape("/#{post["id"]}")}</slot:url>
-    <slot:title>#{escape(post["title"])}</slot:title>
-    <slot:summary>#{escape(post["summary"])}</slot:summary>
-    <%/ blog_index_item.html %>
-    """
-
-    case parse_page(template, state) do
-      {:ok, html} -> html
-      _ -> ""
-    end
-  end
-
-  defp escape(nil), do: ""
-  defp escape(value), do: Plug.HTML.html_escape(value)
 
   defp parse_page(content, state) do
-    partials =
-      state.table
-      |> :ets.match({{:partial, :"$1"}, :"$2"})
-      |> Map.new(fn [k, v] -> {k, v} end)
-
-    Parser.parse(%ParseInput{file: content, template_dir: state.template_dir, partials: partials})
+    Parser.parse(%ParseInput{
+      file: content,
+      template_dir: state.template_dir,
+      partials: state.partials
+    })
   end
 
   defp mtime_for_file(state, relative_path) do

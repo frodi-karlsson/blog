@@ -1,5 +1,5 @@
 defmodule Webserver.ParserResolverTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   doctest(Webserver.Parser.Resolver)
 
   alias Webserver.Parser.ParseInput

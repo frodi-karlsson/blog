@@ -7,6 +7,7 @@ defmodule Webserver.Router do
 
   use Plug.Router
   import Plug.Conn
+  import Webserver.ConnHelpers
 
   alias Webserver.AdminRouter
   alias Webserver.Server
@@ -44,10 +45,4 @@ defmodule Webserver.Router do
   forward("/admin", to: AdminRouter)
 
   forward("/", to: Server)
-
-  defp json(conn, status, data) do
-    conn
-    |> put_resp_content_type("application/json")
-    |> send_resp(status, Jason.encode!(data))
-  end
 end

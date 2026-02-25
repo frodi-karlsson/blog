@@ -12,14 +12,14 @@ defmodule Webserver.Watcher do
     GenServer.start_link(__MODULE__, args, name: __MODULE__)
   end
 
-  def init({base_url, live_reload?}) do
+  def init({template_dir, live_reload?}) do
     if live_reload? do
       :fs.subscribe()
-      expanded = Path.expand(base_url)
+      expanded = Path.expand(template_dir)
       :fs.start_link(:template_watcher, expanded)
       :fs.start_link(:static_watcher, Path.expand("priv/static"))
 
-      {:ok, %{base_url: expanded}}
+      {:ok, %{template_dir: expanded}}
     else
       :ignore
     end
@@ -29,8 +29,8 @@ defmodule Webserver.Watcher do
     path_str = List.to_string(path)
 
     cond do
-      String.contains?(path_str, state.base_url) ->
-        handle_template_change(path_str, state.base_url)
+      String.contains?(path_str, state.template_dir) ->
+        handle_template_change(path_str, state.template_dir)
 
       String.ends_with?(path_str, ".css") ->
         broadcast_reload(:css)
@@ -45,8 +45,8 @@ defmodule Webserver.Watcher do
     {:noreply, state}
   end
 
-  defp handle_template_change(path, base_url) do
-    rel_path = Path.relative_to(path, base_url)
+  defp handle_template_change(path, template_dir) do
+    rel_path = Path.relative_to(path, template_dir)
 
     cond do
       String.ends_with?(path, "blog.json") ->
