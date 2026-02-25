@@ -1,0 +1,20 @@
+{
+  "name": "webserver-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": ">=24",
+    "pnpm": ">=9"
+  },
+  "scripts": {
+    "test": "playwright test",
+    "lint": "oxlint e2e playwright.config.ts",
+    "format": "oxfmt e2e playwright.config.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.1",
+    "@axe-core/playwright": "^4.10.1",
+    "oxlint": "latest",
+    "oxfmt": "latest"
+  }
+}

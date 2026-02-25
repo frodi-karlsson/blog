@@ -1,10 +1,10 @@
-<article class="card card--raised">
+<article class="card card--raised" data-testid="blog-post-card">
   <div class="card-body stack stack--tight">
     <div class="cluster">
       <span class="badge badge--secondary badge--pill">{{category}}</span>
       <span class="text-subtle">{{date}}</span>
     </div>
-    <h2><a href="{{url}}">{{title}}</a></h2>
+    <h2><a href="{{url}}" data-testid="blog-post-link">{{title}}</a></h2>
     <p class="text-subtle">{{summary}}</p>
   </div>
 </article>

@@ -1,5 +1,5 @@
 <article class="prose">
-  <header class="stack stack--tight">
+  <header class="stack stack--tight" data-testid="blog-post-header">
     <div class="cluster">
       <span class="badge badge--primary">{{category}}</span>
       <time class="text-subtle">{{date}}</time>
@@ -7,7 +7,7 @@
     <h1>{{title}}</h1>
   </header>
 
-  <div class="post-content">
+  <div class="post-content" data-testid="blog-post-content">
     {{content}}
   </div>
 

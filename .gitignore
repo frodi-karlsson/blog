@@ -24,6 +24,11 @@ webserver-*.tar
 
 .env
 
+# Node.js
+node_modules/
+playwright-report/
+test-results/
+
 # Tofu / Terraform
 *.tfvars
 *.tfvars.json

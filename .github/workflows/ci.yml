@@ -46,6 +46,48 @@ jobs:
       - name: Run checks
         run: mix check
 
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: '1.19.5'
+          otp-version: '27.2'
+
+      - name: Install Elixir dependencies
+        run: mix deps.get
+
+      - name: Start Webserver
+        run: mix run --no-halt &
+        env:
+          MIX_ENV: dev
+          PORT: 4040
+
+      - name: Wait for Webserver
+        run: |
+          until curl -s http://localhost:4040 > /dev/null; do
+            echo "Waiting for webserver..."
+            sleep 2
+          done
+
+      - name: Run E2E tests
+        run: mix e2e
+        env:
+          BASE_URL: http://localhost:4040
+
   docker:
     name: Docker & Security
     runs-on: ubuntu-latest
