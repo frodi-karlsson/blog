@@ -9,7 +9,7 @@ defmodule Webserver.LiveReload.PubSub do
   end
 
   def subscribe(pid) do
-    GenServer.cast(__MODULE__, {:subscribe, pid})
+    GenServer.call(__MODULE__, {:subscribe, pid})
   end
 
   def broadcast(message) do
@@ -22,9 +22,9 @@ defmodule Webserver.LiveReload.PubSub do
   end
 
   @impl true
-  def handle_cast({:subscribe, pid}, state) do
+  def handle_call({:subscribe, pid}, _from, state) do
     Process.monitor(pid)
-    {:noreply, Map.put(state, pid, true)}
+    {:reply, :ok, Map.put(state, pid, true)}
   end
 
   @impl true

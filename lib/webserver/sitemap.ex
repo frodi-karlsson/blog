@@ -18,9 +18,9 @@ defmodule Webserver.Sitemap do
 | <>
         ~s|<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 | <>
-        Enum.map_join(pages, "
-", fn page ->
-          ~s|  <url><loc>#{base_url}#{page["path"]}</loc></url>|
+        Enum.map_join(pages, "\n", fn page ->
+          path = Plug.HTML.html_escape(page["path"])
+          "  <url><loc>#{base_url}#{path}</loc></url>"
         end) <>
         ~s|
 </urlset>|

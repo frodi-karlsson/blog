@@ -60,6 +60,8 @@ resource "digitalocean_droplet" "blog" {
           - "80:4040"
         environment:
           - PORT=4040
+          - ADMIN_USERNAME=${var.admin_username}
+          - ADMIN_PASSWORD=${var.admin_password}
         logging:
           driver: "json-file"
           options:
@@ -110,7 +112,7 @@ resource "digitalocean_firewall" "blog" {
   inbound_rule {
     protocol         = "tcp"
     port_range       = "22"
-    source_addresses = ["0.0.0.0/0", "::/0"]
+    source_addresses = var.ssh_allowed_cidrs
   }
 
   inbound_rule {

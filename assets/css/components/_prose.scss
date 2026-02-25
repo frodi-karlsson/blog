@@ -60,4 +60,10 @@
       padding: 0;
     }
   }
+
+  &-footer {
+    margin-top: vars.$space-12;
+    padding-top: vars.$space-6;
+    border-top: 1px solid vars.$border-light;
+  }
 }

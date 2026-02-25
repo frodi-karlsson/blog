@@ -11,8 +11,24 @@ defmodule Webserver.TemplateServer.TemplateReader.Sandbox do
     {:ok,
      %{
        "partials/layout.html" => ~S"""
-       <html><body>{{body}}</body></html>
+       <!DOCTYPE html>
+       <html lang="en">
+       <head>
+         <meta name="description" content="{{description}}">
+         <link rel="canonical" href="{{canonical}}">
+         <meta property="og:type" content="{{og_type}}">
+         <meta property="og:title" content="{{title}}">
+         <title>{{title}}</title>
+         <% header_assets.html %/>
+       </head>
+       <body>
+         {{body}}
+         <% footer_assets.html %/>
+       </body>
+       </html>
        """,
+       "partials/header_assets.html" => "<header-assets/>",
+       "partials/footer_assets.html" => "<footer-assets/>",
        "partials/blog.html" => ~S"""
        <div class="blog">
          <h1 class="title">
@@ -30,17 +46,30 @@ defmodule Webserver.TemplateServer.TemplateReader.Sandbox do
       "index.html" ->
         {:ok,
          ~S"""
-         <html>
-           <body>
-           </body>
-         </html>
+         <% layout.html %>
+           <slot:title>Home</slot:title>
+           <slot:description>Sandbox Home</slot:description>
+           <slot:canonical>http://localhost/</slot:canonical>
+           <slot:og_type>website</slot:og_type>
+           <slot:body>
+             <h1>Home</h1>
+           </slot:body>
+         <%/ layout.html %>
          """}
 
-      "blog/index.html" ->
-        {:ok, "<html><body>Blog Index</body></html>"}
-
-      "blog/building-an-elixir-webserver-from-scratch.html" ->
-        {:ok, "<html><body>First Post</body></html>"}
+      "building-an-elixir-webserver-from-scratch.html" ->
+        {:ok,
+         ~S"""
+         <% layout.html %>
+           <slot:title>First Post</slot:title>
+           <slot:description>Sandbox Post</slot:description>
+           <slot:canonical>http://localhost/first-post</slot:canonical>
+           <slot:og_type>article</slot:og_type>
+           <slot:body>
+             <h1>First Post</h1>
+           </slot:body>
+         <%/ layout.html %>
+         """}
 
       "blog.html" ->
         {:error, :eisdir}
@@ -76,6 +105,11 @@ defmodule Webserver.TemplateServer.TemplateReader.Sandbox do
          "id" => "index",
          "title" => "Home",
          "path" => "/"
+       },
+       %{
+         "id" => "building-an-elixir-webserver-from-scratch",
+         "title" => "First Post",
+         "path" => "/building-an-elixir-webserver-from-scratch"
        }
      ])}
   end

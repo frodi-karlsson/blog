@@ -5,11 +5,26 @@ defmodule Webserver.RouterTest do
 
   defp call(method, path) do
     conn = Plug.Test.conn(method, path)
+
+    conn =
+      if String.starts_with?(path, "/admin") do
+        username = Application.get_env(:webserver, :admin_username, "admin")
+        password = Application.get_env(:webserver, :admin_password, "admin")
+
+        Plug.Conn.put_req_header(
+          conn,
+          "authorization",
+          "Basic " <> Base.encode64("#{username}:#{password}")
+        )
+      else
+        conn
+      end
+
     Webserver.Router.call(conn, Webserver.Router.init([]))
   end
 
   describe "GET /health" do
-    test "returns 200 with JSON body" do
+    test "should return 200 with JSON body" do
       conn = call(:get, "/health")
       assert conn.status == 200
       assert conn.resp_headers |> List.keyfind("content-type", 0) |> elem(1) =~ "application/json"
@@ -17,8 +32,18 @@ defmodule Webserver.RouterTest do
     end
   end
 
+  describe "GET /robots.txt" do
+    test "should return 200 with plain text" do
+      conn = call(:get, "/robots.txt")
+      assert conn.status == 200
+      assert conn.resp_headers |> List.keyfind("content-type", 0) |> elem(1) =~ "text/plain"
+      assert conn.resp_body =~ "User-agent: *"
+      assert conn.resp_body =~ "Sitemap: https://blog.frodikarlsson.com/sitemap.xml"
+    end
+  end
+
   describe "GET /admin/cache/stats" do
-    test "returns 200 with stats JSON" do
+    test "should return 200 with stats JSON" do
       conn = call(:get, "/admin/cache/stats")
       assert conn.status == 200
       body = Jason.decode!(conn.resp_body)
@@ -29,7 +54,7 @@ defmodule Webserver.RouterTest do
   end
 
   describe "POST /admin/cache/refresh" do
-    test "returns 200 on success" do
+    test "should return 200 on success" do
       conn = call(:post, "/admin/cache/refresh")
       assert conn.status == 200
       assert Jason.decode!(conn.resp_body) == %{"status" => "cache refreshed"}
@@ -37,7 +62,7 @@ defmodule Webserver.RouterTest do
   end
 
   describe "GET /" do
-    test "forwards to Server and returns 200" do
+    test "should forward to Server and return 200" do
       conn = call(:get, "/")
       assert conn.status == 200
       assert conn.resp_headers |> List.keyfind("content-type", 0) |> elem(1) =~ "text/html"
@@ -45,22 +70,22 @@ defmodule Webserver.RouterTest do
   end
 
   describe "GET /nonexistent" do
-    test "forwards to Server and returns 404" do
+    test "should forward to Server and return 404" do
       conn = call(:get, "/nonexistent")
       assert conn.status == 404
     end
   end
 
   describe "Directory index resolution" do
-    test "GET /blog resolves to blog/index.html" do
-      conn = call(:get, "/blog")
+    test "should resolve /building-an-elixir-webserver-from-scratch to building-an-elixir-webserver-from-scratch.html" do
+      conn = call(:get, "/building-an-elixir-webserver-from-scratch")
       assert conn.status == 200
       assert conn.resp_headers |> List.keyfind("content-type", 0) |> elem(1) =~ "text/html"
     end
   end
 
   describe "HEAD requests" do
-    test "HEAD / returns 200 with empty body" do
+    test "should return 200 with empty body on HEAD /" do
       conn = call(:head, "/")
       assert conn.status == 200
       assert conn.resp_body == ""

@@ -14,8 +14,8 @@ defmodule Webserver.Parser do
 
   @self_closing_regex ~r|<%(.*?)%/>|
   @slot_regex ~r|<%\s*(.*?)\s*%>(.*?)<%/\s*\1\s*%>|s
-  @named_slot_regex ~r|<slot:([a-z]+)>(.*?)</slot:\1>|s
-  @slot_placeholder_regex ~r|\{\{([a-z]+)\}\}|
+  @named_slot_regex ~r|<slot:([a-z_]+)>(.*?)</slot:\1>|s
+  @slot_placeholder_regex ~r|\{\{([a-z_]+)\}\}|
 
   @spec parse(ParseInput.t()) :: parse_result()
   def parse(parse_input) do

@@ -26,3 +26,18 @@ variable "image_tag" {
   type    = string
   default = "latest"
 }
+
+variable "ssh_allowed_cidrs" {
+  type        = list(string)
+  default     = ["0.0.0.0/0", "::/0"]
+}
+
+variable "admin_username" {
+  type      = string
+  sensitive = true
+}
+
+variable "admin_password" {
+  type      = string
+  sensitive = true
+}

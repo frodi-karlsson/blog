@@ -5,9 +5,9 @@
     "path": "/"
   },
   {
-    "id": "blog/index",
-    "title": "Blog",
-    "path": "/blog"
+    "id": "building-an-elixir-webserver-from-scratch",
+    "title": "Building an Elixir Webserver from Scratch",
+    "path": "/building-an-elixir-webserver-from-scratch"
   },
   {
     "id": "admin/design-system",

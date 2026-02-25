@@ -9,7 +9,15 @@ defmodule Webserver.AdminRouter do
   alias Webserver.TemplateServer.Cache
 
   plug(:match)
+  plug(:authenticate)
   plug(:dispatch)
+
+  defp authenticate(conn, _opts) do
+    username = Application.fetch_env!(:webserver, :admin_username)
+    password = Application.fetch_env!(:webserver, :admin_password)
+
+    Plug.BasicAuth.basic_auth(conn, username: username, password: password)
+  end
 
   get "/cache/stats" do
     stats = Cache.stats()
