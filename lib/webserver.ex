@@ -8,6 +8,8 @@ defmodule Webserver do
 
   use Application
 
+  alias Mix.Tasks.Assets.Build, as: AssetsBuild
+
   def start(_start_type, _start_args) do
     port = Application.fetch_env!(:webserver, :port)
     template_dir = Application.fetch_env!(:webserver, :template_dir)
@@ -24,6 +26,8 @@ defmodule Webserver do
 
     children =
       if live_reload? do
+        AssetsBuild.run([])
+
         children ++
           [
             Webserver.LiveReload.PubSub,
