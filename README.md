@@ -1,6 +1,6 @@
-# Webserver
+# blog
 
-A lightweight template server built with Elixir, Plug, and Bandit. Designed for performance and simplicity.
+A custom blog server built with Elixir. No Phoenix, no framework. Just Plug and Bandit, a hand-rolled template engine, and ETS for caching.
 
 ## Features
 
@@ -9,7 +9,7 @@ A lightweight template server built with Elixir, Plug, and Bandit. Designed for 
 - **SCSS Support**: Modular design system built with Dart Sass and hot-reloading.
 - **LiveReload**: Instant browser style patching and page refreshes via SSE.
 - **Page Registry**: Centralized `pages.json` for URL management and dynamic `sitemap.xml`.
-- **Infrastructure**: Automated deployment to DigitalOcean via OpenTofu.
+- **Infrastructure**: Automated deployment to DigitalOcean via OpenTofu and Watchtower.
 
 ## Local Development
 
@@ -36,31 +36,31 @@ A lightweight template server built with Elixir, Plug, and Bandit. Designed for 
 
 ### Quality Checks
 
-The project enforces strict standards. Before pushing, run:
+Run before pushing:
 ```bash
 mix check
 ```
-This runs formatting, Credo (linting), Dialyzer (types), and the test suite.
+Runs formatting, Credo (linting), Dialyzer (types), and the test suite.
 
 ## Deployment
 
 ### Docker
 
-The project uses GHCR for hosting images. The CI pipeline builds and pushes the image on every change to `main`.
+Images are built by CI and pushed to GHCR on every merge to `main`.
 
 Manual build:
 ```bash
-docker build -t ghcr.io/your-username/webserver:latest .
+docker build -t ghcr.io/frodi-karlsson/blog:latest .
 ```
 
 ### Infrastructure (OpenTofu)
 
-The application is deployed to a DigitalOcean Droplet ($4/mo) using Docker Compose.
+The app runs on a DigitalOcean Droplet ($4/mo) using Docker Compose. Watchtower polls GHCR every 30 seconds and restarts the container when a new image is available.
 
 1. Setup your secrets:
    ```bash
    cp tofu/terraform.tfvars.example tofu/terraform.tfvars
-   # Fill in clouflare_token, cloudflare_zone_id, and do_token
+   # Fill in cloudflare_token, cloudflare_zone_id, and do_token
    ```
 2. Deploy:
    ```bash
@@ -72,7 +72,7 @@ The application is deployed to a DigitalOcean Droplet ($4/mo) using Docker Compo
 The Tofu code handles:
 - Provisioning the Droplet.
 - Configuring Cloudflare DNS (proxied).
-- Launching the app and an observability sidecar.
+- Launching the app, an observability sidecar, and Watchtower.
 
 ## Content Management
 

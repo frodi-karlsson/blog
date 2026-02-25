@@ -54,7 +54,7 @@ resource "digitalocean_droplet" "blog" {
     cat <<EOC > /app/docker-compose.yml
     services:
       app:
-        image: ghcr.io/frodi-karlsson/elixir-learning-server:${var.image_tag}
+        image: ghcr.io/frodi-karlsson/blog:${var.image_tag}
         restart: always
         ports:
           - "80:4040"

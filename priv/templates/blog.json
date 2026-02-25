@@ -4,6 +4,6 @@
     "title": "Building an Elixir Webserver from Scratch",
     "date": "Feb 24, 2026",
     "category": "Elixir",
-    "summary": "Building a lightweight template server without the overhead of massive frameworks or the frustration of colored functions."
+    "summary": "How I spent a few sick days building an Elixir webserver from scratch, and what I learned from it."
   }
 ]
