@@ -1,0 +1,49 @@
+<% layout.html %>
+  <slot:title>Building an Elixir Webserver from Scratch</slot:title>
+  <slot:body>
+    <% blog_post.html %>
+      <slot:category>Elixir</slot:category>
+      <slot:date>Feb 24, 2026</slot:date>
+      <slot:title>Building an Elixir Webserver from Scratch</slot:title>
+      <slot:content>
+        <p>This blog runs on a webserver I wrote in Elixir. I built it while stuck in bed with nothing better to do. I didn't want to pull in a framework just to serve some HTML.</p>
+
+        <p>Elixir doesn't have <a href="https://journal.stuffwithstuff.com/2015/02/01/what-color-is-your-function/">colored functions</a>. You don't think about async versus sync. The <a href="https://www.erlang.org/blog/a-brief-beam-primer/">BEAM</a> handles scheduling for you. It's one less thing to worry about.</p>
+
+        <h3>Concurrency that makes sense</h3>
+        <p>You spawn processes instead of managing threads or async loops. Every request in this server gets its own process. If one crashes, the others keep going. The <a href="https://hexdocs.pm/elixir/Supervisor.html">supervisor</a> handles the restart.</p>
+
+        <pre><code class="language-elixir">def start(_type, _args) do
+  children = [
+    Webserver.TemplateServer.Cache,
+    {Bandit, plug: Webserver.Router}
+  ]
+  Supervisor.start_link(children, strategy: :one_for_one)
+end</code></pre>
+
+        <h3>A Custom Templating Language</h3>
+        <p>I wrote a small templating system too. It supports partials and named slots. The parser is recursive regex, which sounds worse than it is. You get component-style HTML without a build pipeline.</p>
+
+        <pre><code class="language-html">&lt;% layout.html %&gt;
+  &lt;slot:title&gt;My Page&lt;/slot:title&gt;
+  &lt;slot:body&gt;
+    &lt;% header.html %/&gt;
+    &lt;p&gt;Content goes here.&lt;/p&gt;
+  &lt;/slot:body&gt;
+&lt;%/ layout.html %&gt;</code></pre>
+
+        <h3>Live Reload</h3>
+        <p>In development, the server watches the template and static directories using <a href="https://github.com/synrc/fs">fs</a>, an Erlang filesystem watcher. The browser keeps an SSE connection open to <code>/live-reload</code>. When a template changes, the cache entry gets invalidated and a reload signal goes out. CSS changes swap the stylesheets in place. Anything else triggers a full reload.</p>
+
+        <h3>Caching with ETS</h3>
+        <p>Templates are cached in <a href="https://hexdocs.pm/elixir/main/ets.html">ETS</a>, an in-memory store built into the BEAM. Multiple processes can read from it simultaneously without blocking on each other. No external dependencies. The <a href="https://www.erlang.org/doc/man/ets.html">Erlang docs</a> have more detail if you're curious.</p>
+
+        <h3>Hosting</h3>
+        <p>The app runs in a Docker container on a DigitalOcean droplet behind Cloudflare. Deployments are automatic. When something merges to main, GitHub Actions builds and scans the image, then pushes it to GHCR. <a href="https://containrrr.dev/watchtower/">Watchtower</a> runs on the droplet and polls the registry every 30 seconds. New image means restart. No deploy scripts.</p>
+
+        <h3>Pattern Matching and Type Safety</h3>
+        <p>Elixir is dynamically typed, which I was skeptical of going in. Pattern matching and typespecs take the edge off. You write out what you expect and crash on anything else. The pipes and immutability make the logic easy to follow. I've had a lot of fun with it.</p>
+      </slot:content>
+    <%/ blog_post.html %>
+  </slot:body>
+<%/ layout.html %>

@@ -42,7 +42,7 @@ defmodule Webserver.TemplateServer.TemplateReader.Sandbox do
       "blog/index.html" ->
         {:ok, "<html><body>Blog Index</body></html>"}
 
-      "blog/first-post.html" ->
+      "blog/building-an-elixir-webserver-from-scratch.html" ->
         {:ok, "<html><body>First Post</body></html>"}
 
       "blog.html" ->
@@ -64,7 +64,7 @@ defmodule Webserver.TemplateServer.TemplateReader.Sandbox do
     {:ok,
      Jason.encode!([
        %{
-         "id" => "first-post",
+         "id" => "building-an-elixir-webserver-from-scratch",
          "title" => "Sandbox Post",
          "date" => "Feb 24, 2024",
          "category" => "Test",

@@ -37,10 +37,18 @@ resource "digitalocean_droplet" "blog" {
     #!/bin/bash
     set -euo pipefail
 
+    exec > /var/log/cloud-init-user-data.log 2>&1
+    echo "=== Starting cloud-init at $(date) ==="
+
     apt-get update
-    apt-get install -y docker.io docker-compose-plugin unattended-upgrades
+    apt-get install -y docker.io docker-compose-v2 unattended-upgrades
+
     systemctl start docker
     systemctl enable docker
+
+    echo "Docker installed, waiting for daemon..."
+    sleep 5
+    docker version
 
     mkdir -p /app
     cat <<EOC > /app/docker-compose.yml
@@ -57,6 +65,20 @@ resource "digitalocean_droplet" "blog" {
           options:
             max-size: "10m"
             max-file: "3"
+        labels:
+          - "com.centurylinklabs.watchtower.scope=blog"
+
+      watchtower:
+        image: containrrr/watchtower:latest
+        restart: always
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock
+        environment:
+          - WATCHTOWER_POLL_INTERVAL=30
+          - WATCHTOWER_CLEANUP=true
+          - WATCHTOWER_SCOPE=blog
+        labels:
+          - "com.centurylinklabs.watchtower.scope=blog"
 
       observability:
         image: timberio/vector:0.34.1-distroless-static
@@ -67,6 +89,8 @@ resource "digitalocean_droplet" "blog" {
 
     cd /app
     docker compose up -d
+
+    echo "=== Cloud-init completed at $(date) ==="
   EOF
 }
 
