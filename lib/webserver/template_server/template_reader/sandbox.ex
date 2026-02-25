@@ -10,10 +10,8 @@ defmodule Webserver.TemplateServer.TemplateReader.Sandbox do
   def get_partials("/priv/templates") do
     {:ok,
      %{
-       "partials/head.html" => ~S"""
-       <head>
-         <title>Hello world</title>
-       </head>
+       "partials/layout.html" => ~S"""
+       <html><body>{{body}}</body></html>
        """,
        "partials/blog.html" => ~S"""
        <div class="blog">
@@ -33,7 +31,6 @@ defmodule Webserver.TemplateServer.TemplateReader.Sandbox do
         {:ok,
          ~S"""
          <html>
-           <% head.html %/>
            <body>
            </body>
          </html>
@@ -54,8 +51,6 @@ defmodule Webserver.TemplateServer.TemplateReader.Sandbox do
   end
 
   @impl true
-  def read_partial(_base_url, "head.html"), do: {:ok, "<head>...</head>"}
-
   def read_partial(_base_url, filename) when is_binary(filename),
     do: {:ok, "<partial>#{filename}</partial>"}
 

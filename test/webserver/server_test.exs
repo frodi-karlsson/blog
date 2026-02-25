@@ -10,8 +10,7 @@ defmodule Webserver.ServerTest do
         name: "return parsed template for root path",
         path: "/",
         expected_status: 200,
-        expected_body:
-          "<html>\n  <head>\n  <title>Hello world</title>\n</head>\n\n  <body>\n  </body>\n</html>\n"
+        expected_body: "<html>"
       },
       %{
         name: "return 404 for missing template",

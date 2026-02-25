@@ -1,5 +1,8 @@
 <% layout.html %>
   <slot:title>Building an Elixir Webserver from Scratch</slot:title>
+  <slot:description>How I spent a few sick days building an Elixir webserver from scratch, and what I learned from it.</slot:description>
+  <slot:canonical>https://blog.frodikarlsson.com/building-an-elixir-webserver-from-scratch</slot:canonical>
+  <slot:og_type>article</slot:og_type>
   <slot:body>
     <% blog_post.html %>
       <slot:category>Elixir</slot:category>
@@ -43,6 +46,17 @@ end</code></pre>
 
         <h3>Pattern Matching and Type Safety</h3>
         <p>Elixir is dynamically typed, which I was skeptical of going in. Pattern matching and typespecs take the edge off. You write out what you expect and crash on anything else. The pipes and immutability make the logic easy to follow. I've had a lot of fun with it.</p>
+
+        <h3>Elixir vs Node</h3>
+        <p>Most of my day job is TypeScript and Node. They work. The ecosystem is enormous, TypeScript handles large codebases well, and there's a library for everything. For most things it's the path of least resistance.</p>
+
+        <p>Where it gets awkward is concurrency. Node runs on a single thread with an event loop. You can work around it, but you're always working around it. Elixir doesn't have that problem. The BEAM schedules everything. You spawn processes. If one crashes, the supervisor restarts it and the rest keep going.</p>
+
+        <p>For a blog server this doesn't matter much. But for anything that needs high concurrency, persistent connections, or background jobs that have to survive failures, I'd take the BEAM over Node every time.</p>
+
+        <p>Node still has the bigger ecosystem, and I know it well. That counts for a lot. Familiarity means fewer surprises, faster debugging, and less time reading docs. It's the devil I know. For most projects that's reason enough to stick with it.</p>
+
+        <p>But next time I have a greenfield side project that needs any of the above, I'm probably reaching for Elixir first.</p>
       </slot:content>
     <%/ blog_post.html %>
   </slot:body>

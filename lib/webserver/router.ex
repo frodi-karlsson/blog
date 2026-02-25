@@ -25,6 +25,14 @@ defmodule Webserver.Router do
   plug(:match)
   plug(:dispatch)
 
+  get "/robots.txt" do
+    external_url = Application.get_env(:webserver, :external_url, "https://example.com")
+
+    conn
+    |> put_resp_content_type("text/plain")
+    |> send_resp(200, "User-agent: *\nAllow: /\n\nSitemap: #{external_url}/sitemap.xml\n")
+  end
+
   get "/health" do
     json(conn, 200, %{status: "ok"})
   end

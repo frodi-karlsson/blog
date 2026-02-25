@@ -7,7 +7,7 @@ defmodule Webserver.TemplateServer.TemplateReaderTest do
   describe "get_partials with Sandbox" do
     test "returns partials for valid base_url" do
       {:ok, partials} = Sandbox.get_partials("/priv/templates")
-      assert Map.has_key?(partials, "partials/head.html")
+      assert Map.has_key?(partials, "partials/layout.html")
     end
 
     test "returns error for invalid base_url" do
@@ -31,7 +31,7 @@ defmodule Webserver.TemplateServer.TemplateReaderTest do
       base_path = :code.priv_dir(:webserver) |> to_string() |> Path.join("templates")
       {:ok, partials} = FileReader.get_partials(base_path)
       assert is_map(partials)
-      assert Map.has_key?(partials, "partials/head.html")
+      assert Map.has_key?(partials, "partials/layout.html")
     end
 
     test "returns error for missing directory" do
