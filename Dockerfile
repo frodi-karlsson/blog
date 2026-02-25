@@ -1,14 +1,8 @@
-FROM debian:trixie-slim AS adder
-ADD https://github.com/sass/dart-sass/releases/download/1.83.4/dart-sass-1.83.4-linux-x64.tar.gz /
-RUN tar -xvzf /dart-sass-1.83.4-linux-x64.tar.gz
-
 FROM elixir:1.19.5-slim AS build
 
 RUN apt-get update && \
     apt-get install -y build-essential bash ca-certificates && \
     rm -rf /var/lib/apt/lists/*
-
-COPY --from=adder /dart-sass /usr/local/bin/
 
 WORKDIR /app
 
@@ -36,8 +30,12 @@ RUN apt-get update && \
     apt-get install -y openssl ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
+RUN groupadd -r webserver && useradd -r -g webserver webserver
+
 WORKDIR /app
-COPY --from=build /app/_build/prod/rel/webserver ./
+COPY --from=build --chown=webserver:webserver /app/_build/prod/rel/webserver ./
+
+USER webserver
 
 EXPOSE 4040
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \

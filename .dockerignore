@@ -8,3 +8,8 @@ test
 .formatter.exs
 .credo.exs
 .dialyzer_ignore.exs
+tofu
+erl_crash.dump
+cover
+.github
+.claude

@@ -1,4 +1,5 @@
 terraform {
+  required_version = ">= 1.6.0"
   required_providers {
     digitalocean = {
       source  = "digitalocean/digitalocean"
@@ -25,7 +26,7 @@ resource "digitalocean_ssh_key" "default" {
 }
 
 resource "digitalocean_droplet" "blog" {
-  image      = "ubuntu-22-04-x64"
+  image      = "ubuntu-24-04-x64"
   name       = "webserver-blog"
   region     = var.do_region
   size       = "s-1vcpu-512mb-10gb"
@@ -34,14 +35,15 @@ resource "digitalocean_droplet" "blog" {
 
   user_data = <<-EOF
     #!/bin/bash
+    set -euo pipefail
+
     apt-get update
-    apt-get install -y docker.io docker-compose
+    apt-get install -y docker.io docker-compose-plugin unattended-upgrades
     systemctl start docker
     systemctl enable docker
 
     mkdir -p /app
     cat <<EOC > /app/docker-compose.yml
-    version: '3.8'
     services:
       app:
         image: ghcr.io/frodi-karlsson/elixir-learning-server:${var.image_tag}
@@ -54,6 +56,7 @@ resource "digitalocean_droplet" "blog" {
           driver: "json-file"
           options:
             max-size: "10m"
+            max-file: "3"
 
       observability:
         image: timberio/vector:0.34.1-distroless-static
@@ -63,7 +66,7 @@ resource "digitalocean_droplet" "blog" {
     EOC
 
     cd /app
-    docker-compose up -d
+    docker compose up -d
   EOF
 }
 
@@ -74,4 +77,43 @@ resource "cloudflare_dns_record" "blog" {
   type    = "A"
   proxied = true
   ttl     = 1
+}
+
+resource "digitalocean_firewall" "blog" {
+  name        = "webserver-blog-fw"
+  droplet_ids = [digitalocean_droplet.blog.id]
+
+  inbound_rule {
+    protocol         = "tcp"
+    port_range       = "22"
+    source_addresses = ["0.0.0.0/0", "::/0"]
+  }
+
+  inbound_rule {
+    protocol         = "tcp"
+    port_range       = "80"
+    source_addresses = ["0.0.0.0/0", "::/0"]
+  }
+
+  inbound_rule {
+    protocol         = "icmp"
+    source_addresses = ["0.0.0.0/0", "::/0"]
+  }
+
+  outbound_rule {
+    protocol              = "tcp"
+    port_range            = "all"
+    destination_addresses = ["0.0.0.0/0", "::/0"]
+  }
+
+  outbound_rule {
+    protocol              = "udp"
+    port_range            = "all"
+    destination_addresses = ["0.0.0.0/0", "::/0"]
+  }
+
+  outbound_rule {
+    protocol              = "icmp"
+    destination_addresses = ["0.0.0.0/0", "::/0"]
+  }
 }
