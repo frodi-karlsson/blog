@@ -23,7 +23,7 @@ h4 {
 
 a {
   color: #fb923c;
-  text-decoration: none;
+  text-decoration: underline;
   transition: color 0.2s;
 }
 a:hover {

@@ -13,7 +13,7 @@
 
         <p>Elixir doesn't have <a href="https://journal.stuffwithstuff.com/2015/02/01/what-color-is-your-function/">colored functions</a>. You don't think about async versus sync. The <a href="https://www.erlang.org/blog/a-brief-beam-primer/">BEAM</a> handles scheduling for you. It's one less thing to worry about.</p>
 
-        <h3>Concurrency that makes sense</h3>
+        <h2>Concurrency that makes sense</h2>
         <p>You spawn processes instead of managing threads or async loops. Every request in this server gets its own process. If one crashes, the others keep going. The <a href="https://hexdocs.pm/elixir/Supervisor.html">supervisor</a> handles the restart.</p>
 
         <pre><code class="language-elixir">def start(_type, _args) do
@@ -24,7 +24,7 @@
   Supervisor.start_link(children, strategy: :one_for_one)
 end</code></pre>
 
-        <h3>A Custom Templating Language</h3>
+        <h2>A Custom Templating Language</h2>
         <p>I wrote a small templating system too. It supports partials and named slots. The parser is recursive regex, which sounds worse than it is. You get component-style HTML without a build pipeline.</p>
 
         <pre><code class="language-html">&lt;% layout.html %&gt;
@@ -35,19 +35,19 @@ end</code></pre>
   &lt;/slot:body&gt;
 &lt;%/ layout.html %&gt;</code></pre>
 
-        <h3>Live Reload</h3>
+        <h2>Live Reload</h2>
         <p>In development, the server watches the template and static directories using <a href="https://github.com/synrc/fs">fs</a>, an Erlang filesystem watcher. The browser keeps an SSE connection open to <code>/live-reload</code>. When a template changes, the cache entry gets invalidated and a reload signal goes out. CSS changes swap the stylesheets in place. Anything else triggers a full reload.</p>
 
-        <h3>Caching with ETS</h3>
+        <h2>Caching with ETS</h2>
         <p>Templates are cached in <a href="https://hexdocs.pm/elixir/main/ets.html">ETS</a>, an in-memory store built into the BEAM. Multiple processes can read from it simultaneously without blocking on each other. No external dependencies. The <a href="https://www.erlang.org/doc/man/ets.html">Erlang docs</a> have more detail if you're curious.</p>
 
-        <h3>Hosting</h3>
+        <h2>Hosting</h2>
         <p>The app runs in a Docker container on a DigitalOcean droplet behind Cloudflare. Deployments are automatic. When something merges to main, GitHub Actions builds and scans the image, then pushes it to GHCR. <a href="https://containrrr.dev/watchtower/">Watchtower</a> runs on the droplet and polls the registry every 30 seconds. New image means restart. No deploy scripts.</p>
 
-        <h3>Pattern Matching and Type Safety</h3>
+        <h2>Pattern Matching and Type Safety</h2>
         <p>Elixir is dynamically typed, which I was skeptical of going in. Pattern matching and typespecs take the edge off. You write out what you expect and crash on anything else. The pipes and immutability make the logic easy to follow. I've had a lot of fun with it.</p>
 
-        <h3>Elixir vs Node</h3>
+        <h2>Elixir vs Node</h2>
         <p>Most of my day job is TypeScript and Node. They work. The ecosystem is enormous, TypeScript handles large codebases well, and there's a library for everything. For most things it's the path of least resistance.</p>
 
         <p>Where it gets awkward is concurrency. Node runs on a single thread with an event loop. You can work around it, but you're always working around it. Elixir doesn't have that problem. The BEAM schedules everything. You spawn processes. If one crashes, the supervisor restarts it and the rest keep going.</p>
