@@ -6,6 +6,7 @@ defmodule Webserver.TemplateServer.Cache do
 
   use GenServer
 
+  alias Webserver.FrontMatter
   alias Webserver.Parser
   alias Webserver.Parser.ParseInput
   alias Webserver.TemplateServer.ContentGenerator
@@ -125,15 +126,8 @@ defmodule Webserver.TemplateServer.Cache do
   end
 
   @impl true
-  def handle_cast(:refresh_blog_index, state) do
-    new_state = do_generate_blog_index(state)
-    {:noreply, new_state}
-  end
-
-  @impl true
-  def handle_cast(:refresh_page_registry, state) do
-    new_state = do_generate_page_registry(state)
-    {:noreply, new_state}
+  def handle_cast(:refresh_content, state) do
+    {:noreply, do_generate_content(state)}
   end
 
   @impl true
@@ -194,8 +188,7 @@ defmodule Webserver.TemplateServer.Cache do
         state =
           state
           |> do_generate_livereload_partial()
-          |> do_generate_blog_index()
-          |> do_generate_page_registry()
+          |> do_generate_content()
 
         {:ok, state}
 
@@ -209,7 +202,9 @@ defmodule Webserver.TemplateServer.Cache do
 
     case state.reader.read_page(state.template_dir, path) do
       {:ok, content} ->
-        case parse_page(content, state) do
+        {_meta, body} = FrontMatter.parse(content)
+
+        case parse_page(body, state) do
           {:ok, parsed} ->
             mtime = mtime_for_file(state, "pages/#{path}")
             entry = %PageEntry{parsed: parsed, mtime: mtime, last_checked_at: now}
@@ -249,7 +244,9 @@ defmodule Webserver.TemplateServer.Cache do
 
     case state.reader.read_page(state.template_dir, path) do
       {:ok, content} ->
-        case parse_page(content, state) do
+        {_meta, body} = FrontMatter.parse(content)
+
+        case parse_page(body, state) do
           {:ok, parsed} ->
             new_entry = %PageEntry{parsed: parsed, mtime: new_mtime, last_checked_at: now}
             :ets.insert(state.table, {{:page, path}, new_entry})
@@ -272,17 +269,17 @@ defmodule Webserver.TemplateServer.Cache do
     %{state | partials: Map.put(state.partials, key, script)}
   end
 
-  defp do_generate_blog_index(state) do
-    key = "partials/generated_blog_items.html"
-    rendered = ContentGenerator.generate_blog_index(state, state.partials)
-    :ets.insert(state.table, {{:partial, key}, rendered})
-    %{state | partials: Map.put(state.partials, key, rendered)}
-  end
+  defp do_generate_content(state) do
+    pages_meta = ContentGenerator.scan_pages(state)
 
-  defp do_generate_page_registry(state) do
-    pages = ContentGenerator.generate_page_registry(state)
+    blog_key = "partials/generated_blog_items.html"
+    rendered = ContentGenerator.generate_blog_index(pages_meta, state, state.partials)
+    :ets.insert(state.table, {{:partial, blog_key}, rendered})
+
+    pages = ContentGenerator.generate_page_registry(pages_meta)
     :ets.insert(state.table, {:page_registry, pages})
-    state
+
+    %{state | partials: Map.put(state.partials, blog_key, rendered)}
   end
 
   defp parse_page(content, state) do
