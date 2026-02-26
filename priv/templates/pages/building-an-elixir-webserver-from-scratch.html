@@ -27,6 +27,20 @@ summary: A deep dive into the custom-built Elixir webserver powering this very p
           <figcaption>Lighthouse scores for this very page.</figcaption>
         </figure>
 
+        <p>Lighthouse measures perceived performance from a single user's perspective. To see how it holds up under real load, I ran <code>wrk</code> against the live server with 100 concurrent connections over 30 seconds:</p>
+
+        <pre><code>wrk -t4 -c100 -d30s http://&lt;server&gt;
+Running 30s test
+  4 threads and 100 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    54.53ms   34.46ms 368.18ms   93.11%
+    Req/Sec   496.29    144.31   727.00     80.87%
+  59130 requests in 30.11s, 148.65MB read
+Requests/sec:   1963.99
+Transfer/sec:      4.94MB</code></pre>
+
+        <p>Nearly <strong>2,000 requests per second</strong> with an average latency under 55ms, on a $4 droplet. The standard deviation is low too, so the average isn't misleading.</p>
+
         <h2>Routing Requests</h2>
         <p>I used <a href="https://hexdocs.pm/plug/Plug.Router.html" target="_blank" rel="noopener noreferrer">Plug.Router</a> to handle the routing. It's a simple, declarative way to map paths to functions. Here's how the main router is structured:</p>
 
@@ -95,6 +109,13 @@ end</code></pre>
 
         <h2>Hosting and Deployment</h2>
         <p>Deployment is fully automated with GitHub Actions and Docker. When I push to <code>main</code>, an image is built and pushed to GHCR. On the droplet, <a href="https://containrrr.dev/watchtower/" target="_blank" rel="noopener noreferrer">Watchtower</a> detects the new image and restarts the container within 30 seconds. No manual intervention required.</p>
+
+        <h2>Why Not Phoenix?</h2>
+        <p>I've never actually used <a href="https://www.phoenixframework.org/" target="_blank" rel="noopener noreferrer">Phoenix</a>, but from what I've heard it's one of the best web frameworks out there, not just in Elixir. If I were starting a real project I'd probably reach for it.</p>
+
+        <p>But I wanted to learn, not ship. I had just finished the <a href="https://hexdocs.pm/elixir/introduction-to-mix.html" target="_blank" rel="noopener noreferrer">Mix and OTP guide</a>, which builds up a TCP server from scratch. It's a long guide and covers a lot of ground. Jumping straight to Phoenix after that felt like skipping steps. Plug sits in between: it handles HTTP without making all the other decisions for you.</p>
+
+        <p>Having to figure out caching, static files, and templates myself meant I actually understood what I was building. That's the point.</p>
 
         <h2>Elixir vs Node</h2>
         <p>Most of my professional work is in TypeScript and Node. They are great tools, but where they often struggle is concurrency. Node's single-threaded event loop requires workarounds for heavy lifting. In Elixir, concurrency is a first-class citizen.</p>
