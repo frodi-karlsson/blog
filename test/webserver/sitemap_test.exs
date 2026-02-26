@@ -17,6 +17,6 @@ defmodule Webserver.SitemapTest do
     assert body =~ "<loc>https://blog.frodikarlsson.com/</loc>"
 
     assert body =~
-             "<loc>https://blog.frodikarlsson.com/building-an-elixir-webserver-from-scratch</loc>"
+             "<loc>https://blog.frodikarlsson.com/bespoke-elixir-web-framework</loc>"
   end
 end

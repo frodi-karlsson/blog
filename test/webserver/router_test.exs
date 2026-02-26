@@ -1,5 +1,6 @@
 defmodule Webserver.RouterTest do
   use ExUnit.Case
+  import Plug.Conn
 
   @moduletag :capture_log
 
@@ -77,10 +78,18 @@ defmodule Webserver.RouterTest do
   end
 
   describe "Directory index resolution" do
-    test "should resolve /building-an-elixir-webserver-from-scratch to building-an-elixir-webserver-from-scratch.html" do
-      conn = call(:get, "/building-an-elixir-webserver-from-scratch")
+    test "should resolve /bespoke-elixir-web-framework to bespoke-elixir-web-framework.html" do
+      conn = call(:get, "/bespoke-elixir-web-framework")
       assert conn.status == 200
       assert conn.resp_headers |> List.keyfind("content-type", 0) |> elem(1) =~ "text/html"
+    end
+  end
+
+  describe "Redirects" do
+    test "should redirect /building-an-elixir-webserver-from-scratch to /bespoke-elixir-web-framework" do
+      conn = call(:get, "/building-an-elixir-webserver-from-scratch")
+      assert conn.status == 301
+      assert get_resp_header(conn, "location") == ["/bespoke-elixir-web-framework"]
     end
   end
 

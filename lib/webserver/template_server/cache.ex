@@ -202,9 +202,9 @@ defmodule Webserver.TemplateServer.Cache do
 
     case state.reader.read_page(state.template_dir, path) do
       {:ok, content} ->
-        {_meta, body} = FrontMatter.parse(content)
+        {meta, body} = FrontMatter.parse(content)
 
-        case parse_page(body, state) do
+        case parse_page(body, meta, state) do
           {:ok, parsed} ->
             mtime = mtime_for_file(state, "pages/#{path}")
             entry = %PageEntry{parsed: parsed, mtime: mtime, last_checked_at: now}
@@ -244,9 +244,9 @@ defmodule Webserver.TemplateServer.Cache do
 
     case state.reader.read_page(state.template_dir, path) do
       {:ok, content} ->
-        {_meta, body} = FrontMatter.parse(content)
+        {meta, body} = FrontMatter.parse(content)
 
-        case parse_page(body, state) do
+        case parse_page(body, meta, state) do
           {:ok, parsed} ->
             new_entry = %PageEntry{parsed: parsed, mtime: new_mtime, last_checked_at: now}
             :ets.insert(state.table, {{:page, path}, new_entry})
@@ -282,11 +282,12 @@ defmodule Webserver.TemplateServer.Cache do
     %{state | partials: Map.put(state.partials, blog_key, rendered)}
   end
 
-  defp parse_page(content, state) do
+  defp parse_page(content, meta, state) do
     Parser.parse(%ParseInput{
       file: content,
       template_dir: state.template_dir,
-      partials: state.partials
+      partials: state.partials,
+      metadata: meta
     })
   end
 

@@ -119,6 +119,7 @@ defmodule Webserver.Parser do
     case extract_named_slots(raw_content, parse_input) do
       {:ok, _content, slot_map} ->
         expected_slots = extract_expected_slots(partial)
+        slot_map = merge_metadata_slots(slot_map, expected_slots, parse_input.metadata)
 
         case validate_slots(expected_slots, slot_map) do
           :ok ->
@@ -133,6 +134,21 @@ defmodule Webserver.Parser do
         error
     end
   end
+
+  defp merge_metadata_slots(slot_map, expected, metadata) do
+    Enum.reduce(expected, slot_map, &do_merge_metadata_slot(&1, &2, metadata))
+  end
+
+  defp do_merge_metadata_slot(name, acc, metadata) do
+    if Map.has_key?(acc, name) do
+      acc
+    else
+      metadata |> Map.get(name) |> maybe_put_slot(acc, name)
+    end
+  end
+
+  defp maybe_put_slot(nil, acc, _name), do: acc
+  defp maybe_put_slot(val, acc, name), do: Map.put(acc, name, to_string(val))
 
   defp process_self_closing(content, parse_input) do
     result =

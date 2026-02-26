@@ -51,5 +51,17 @@ defmodule Webserver.Router do
 
   forward("/admin", to: AdminRouter)
 
+  @redirects %{
+    "/building-an-elixir-webserver-from-scratch" => "/bespoke-elixir-web-framework"
+  }
+
+  for {old_path, new_path} <- @redirects do
+    get old_path do
+      conn
+      |> put_resp_header("location", unquote(new_path))
+      |> send_resp(301, "")
+    end
+  end
+
   forward("/", to: Server)
 end

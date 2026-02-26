@@ -42,7 +42,7 @@ defmodule Webserver.TemplateServer.TemplateReader.Sandbox do
 
   @impl true
   def list_pages("/priv/templates") do
-    {:ok, ["index.html", "building-an-elixir-webserver-from-scratch.html"]}
+    {:ok, ["index.html", "bespoke-elixir-web-framework.html"]}
   end
 
   def list_pages(_template_dir), do: {:error, :not_found}
@@ -67,7 +67,7 @@ defmodule Webserver.TemplateServer.TemplateReader.Sandbox do
          <%/ layout.html %>
          """}
 
-      "building-an-elixir-webserver-from-scratch.html" ->
+      "bespoke-elixir-web-framework.html" ->
         {:ok,
          """
          ---

@@ -35,12 +35,21 @@ defmodule Webserver.Server do
         |> send_resp(200, parsed)
 
       {:error, :not_found} ->
-        conn
-        |> put_resp_content_type("text/html")
-        |> send_resp(
-          404,
-          error_html(404, "Page Not Found", "The requested page could not be found.")
-        )
+        # Use the custom 404 page template
+        case Cache.get_page("404.html") do
+          {:ok, error_parsed} ->
+            conn
+            |> put_resp_content_type("text/html")
+            |> send_resp(404, error_parsed)
+
+          _ ->
+            conn
+            |> put_resp_content_type("text/html")
+            |> send_resp(
+              404,
+              error_html(404, "Page Not Found", "The requested page could not be found.")
+            )
+        end
 
       {:error, :cache_unavailable} ->
         conn

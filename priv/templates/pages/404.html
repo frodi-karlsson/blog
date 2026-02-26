@@ -1,0 +1,19 @@
+---
+title: 404 Page Not Found
+description: The page you are looking for does not exist.
+canonical: https://blog.frodikarlsson.com/404
+og_type: website
+noindex: true
+---
+<% layout.html %>
+  <slot:title>404 Page Not Found</slot:title>
+  <slot:description>The page you are looking for does not exist.</slot:description>
+  <slot:body>
+    <div style="text-align: center; padding: 4rem 2rem;">
+      <h1 style="font-size: 3rem; margin-bottom: 1rem; color: #fb923c;">404</h1>
+      <p style="font-size: 1.25rem; color: #a8a29e; margin-bottom: 2rem;">Page Not Found</p>
+      <p style="color: #a8a29e; margin-bottom: 3rem;">The requested page could not be found.</p>
+      <a href="/" style="display: inline-block; background: #292524; color: #fafaf9; padding: 0.75rem 1.5rem; border-radius: 4px; text-decoration: none; font-weight: 500;">Return Home</a>
+    </div>
+  </slot:body>
+<%/ layout.html %>

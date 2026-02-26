@@ -1,26 +1,26 @@
 ---
-title: How I Built This Blog from Scratch in Elixir
+title: Bespoke Elixir: Building a Lightweight Web Framework
 date: 2026-02-25
 category: Elixir
 summary: A deep dive into the custom-built Elixir webserver powering this very page.
+canonical: https://blog.frodikarlsson.com/bespoke-elixir-web-framework
 ---
 <% layout.html %>
-  <slot:title>How I Built This Blog from Scratch in Elixir</slot:title>
+  <slot:title>Bespoke Elixir: Building a Lightweight Web Framework</slot:title>
   <slot:description>A deep dive into the custom-built Elixir webserver powering this very page.</slot:description>
-  <slot:canonical>https://blog.frodikarlsson.com/building-an-elixir-webserver-from-scratch</slot:canonical>
   <slot:og_type>article</slot:og_type>
   <slot:body>
     <% blog_post.html %>
       <slot:category>Elixir</slot:category>
       <slot:date>Feb 25, 2026</slot:date>
-      <slot:title>How I Built This Blog from Scratch in Elixir</slot:title>
+      <slot:title>Bespoke Elixir: Building a Lightweight Web Framework</slot:title>
       <slot:content>
-        <p>This blog isn't running on WordPress, Phoenix, or even a static site generator. It's running on a custom webserver I wrote in Elixir while stuck in bed with a cold. I didn't want to pull in a massive framework just to serve some HTML, so I built exactly what I needed.</p>
+        <p>This blog isn't running on WordPress, Phoenix, or even a static site generator. It's running on a bespoke web framework I wrote in Elixir while stuck in bed with a cold. I didn't want to pull in a massive framework just to serve some HTML, so I built exactly what I needed—from scratch, minus the HTTP parsing.</p>
 
         <p>I'm primarily a Node developer, but I've been wanting to explore Elixir and the BEAM. This project was the perfect excuse to dive in and see how it handles the basics of the web.</p>
 
         <h2>Performance on a Budget</h2>
-        <p>The entire application is hosted on the cheapest DigitalOcean droplet available for just <strong>$4 a month</strong>. Despite the minimal resources, it achieves near-perfect Lighthouse scores. The combination of Elixir's efficiency and a lack of client-side bloat makes it fly.</p>
+        <p>The entire application is hosted on the cheapest DigitalOcean droplet available for just <strong>$4 a month</strong>. Despite the minimal resources, it achieves near-perfect Lighthouse scores. The combination of Elixir's efficiency and a lack of client-side bloat makes it incredibly fast.</p>
 
         <figure>
           <img src="/static/img/web-vitals.png" alt="Web Vitals: Performance 98, Accessibility 100, Best Practices 96, SEO 100" />
@@ -79,7 +79,7 @@ end</code></pre>
 end</code></pre>
 
         <h2>Caching with ETS</h2>
-        <p>To keep things fast, I use <a href="https://hexdocs.pm/elixir/main/ets.html" target="_blank" rel="noopener noreferrer">ETS</a> (Erlang Term Storage) for caching parsed templates. Multiple processes can read from the cache simultaneously without any locking, which is essential for high concurrency.</p>
+        <p>To keep things fast, I use <a href="https://hexdocs.pm/elixir/main/ets.html" target="_blank" rel="noopener noreferrer">ETS</a> (Erlang Term Storage) for caching <strong>fully rendered HTML</strong>. Multiple processes can read from the cache simultaneously without any locking, which is essential for high concurrency.</p>
 
         <pre><code class="language-elixir">def get_page(server, path) do
   table = table_for(server)
@@ -93,8 +93,10 @@ end</code></pre>
   end
 end</code></pre>
 
+        <p>The <code>handle_maybe_stale</code> function implements a simple TTL-based revalidation strategy. It checks if a configurable interval has passed since the last check. If it has, the request is serialized through a GenServer that compares the file's <code>mtime</code> on disk. If the file hasn't changed, we simply update the timestamp in ETS and return the cached HTML. This ensures that even under heavy load, we only hit the filesystem once per interval per page.</p>
+
         <h2>A Custom Templating Language</h2>
-        <p>I wanted a component-like experience without a heavy build step. I wrote a small templating system that supports partials and named slots using recursive regex. It allows me to define layouts and reuse components easily.</p>
+        <p>I wanted a component-like experience without a heavy build step. I wrote a small templating system that supports partials and named slots using recursive regex.</p>
 
         <pre><code class="language-html">&lt;% layout.html %&gt;
   &lt;slot:title&gt;My Page&lt;/slot:title&gt;
@@ -104,11 +106,15 @@ end</code></pre>
   &lt;/slot:body&gt;
 &lt;%/ layout.html %&gt;</code></pre>
 
+        <p>The parser works by scanning for component tags. When it finds a tag like <code>&lt;% layout.html %&gt;</code>, it extracts the inner content and immediately runs itself on that content. This allows for arbitrary nesting: a layout can contain a blog post component, which itself contains other partials or slots.
+
+        Once the inner content is fully resolved, the parser scans it for <code>&lt;slot:name&gt;</code> tags to build a map of content for the parent component. Finally, it loads the partial file (e.g., <code>layout.html</code>) and replaces its <code>{{name}}</code> placeholders with the resolved slot content. This 'depth-first' approach ensures that every component has access to its fully rendered children before it renders itself.</p>
+
         <h2>Live Reload</h2>
         <p>For a smooth development experience, I implemented live reloading. The server watches the filesystem using <a href="https://github.com/synrc/fs" target="_blank" rel="noopener noreferrer">fs</a>. The browser keeps an SSE connection open, and when a change is detected, the server sends a signal to reload the page or swap CSS in place.</p>
 
         <h2>Hosting and Deployment</h2>
-        <p>Deployment is fully automated with GitHub Actions and Docker. When I push to <code>main</code>, an image is built and pushed to GHCR. On the droplet, <a href="https://containrrr.dev/watchtower/" target="_blank" rel="noopener noreferrer">Watchtower</a> detects the new image and restarts the container within 30 seconds. No manual intervention required.</p>
+        <p>Deployment fully automated with GitHub Actions and Docker. When I push to <code>main</code>, an image is built and pushed to GHCR. On the droplet, <a href="https://containrrr.dev/watchtower/" target="_blank" rel="noopener noreferrer">Watchtower</a> detects the new image and restarts the container within 30 seconds. No manual intervention required.</p>
 
         <h2>Why Not Phoenix?</h2>
         <p>I've never actually used <a href="https://www.phoenixframework.org/" target="_blank" rel="noopener noreferrer">Phoenix</a>, but from what I've heard it's one of the best web frameworks out there, not just in Elixir. If I were starting a real project I'd probably reach for it.</p>
@@ -122,9 +128,9 @@ end</code></pre>
 
         <p>The Erlang VM (BEAM) is perfect for this kind of work. It doesn't have <a href="https://journal.stuffwithstuff.com/2015/02/01/what-color-is-your-function/" target="_blank" rel="noopener noreferrer">colored functions</a>. You don't think about async versus sync because the <a href="https://www.erlang.org/blog/a-brief-beam-primer/" target="_blank" rel="noopener noreferrer">BEAM</a> handles scheduling for you. Every request gets its own process, making it incredibly resilient and efficient. If a process crashes, the supervisor restarts it, and nothing else is affected.</p>
 
-        <p>Building this from scratch over the last few days has been a great way to learn Elixir. It's a powerful, elegant language that makes building resilient systems feel natural. It's definitely a tool I'll be reaching for again.</p>
+        <p>Building this bespoke framework over the last few days has been a great way to learn Elixir. It's a powerful, elegant language that makes building resilient systems feel natural. It's definitely a tool I'll be reaching for again.</p>
 
-        <p>You can even <a href="https://github.com/frodi-karlsson/blog/blob/main/priv/templates/pages/building-an-elixir-webserver-from-scratch.html" target="_blank" rel="noopener noreferrer">view the source for this very page on GitHub</a> to see how the templating works in practice.</p>
+        <p>You can even <a href="https://github.com/frodi-karlsson/blog/blob/main/priv/templates/pages/bespoke-elixir-web-framework.html" target="_blank" rel="noopener noreferrer">view the source for this very page on GitHub</a> to see how the templating works in practice.</p>
       </slot:content>
     <%/ blog_post.html %>
   </slot:body>

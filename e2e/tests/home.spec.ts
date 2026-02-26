@@ -13,7 +13,7 @@ test.describe("Accessibility", () => {
   test("blog post should not have automatically detectable accessibility issues", async ({
     page,
   }) => {
-    await page.goto("/building-an-elixir-webserver-from-scratch");
+    await page.goto("/bespoke-elixir-web-framework");
     const accessibilityScanResults = await new AxeBuilder({ page }).analyze();
     expect(accessibilityScanResults.violations).toEqual([]);
   });

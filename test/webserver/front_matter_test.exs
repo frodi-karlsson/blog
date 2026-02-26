@@ -109,8 +109,8 @@ defmodule Webserver.FrontMatterTest do
       %{input: "my-post.html", output: "/my-post"},
       %{input: "admin/design-system.html", output: "/admin/design-system"},
       %{
-        input: "building-an-elixir-webserver-from-scratch.html",
-        output: "/building-an-elixir-webserver-from-scratch"
+        input: "bespoke-elixir-web-framework.html",
+        output: "/bespoke-elixir-web-framework"
       },
       %{input: "blog/index.html", output: "/blog"}
     ]

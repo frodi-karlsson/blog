@@ -20,7 +20,7 @@ defmodule Webserver.TemplateServer.TemplateReaderTest do
       {:ok, pages} = Sandbox.list_pages("/priv/templates")
       assert is_list(pages)
       assert "index.html" in pages
-      assert "building-an-elixir-webserver-from-scratch.html" in pages
+      assert "bespoke-elixir-web-framework.html" in pages
     end
 
     test "returns error for invalid template_dir" do
@@ -34,7 +34,7 @@ defmodule Webserver.TemplateServer.TemplateReaderTest do
       {:ok, pages} = FileReader.list_pages(base_path)
       assert is_list(pages)
       assert "index.html" in pages
-      assert "building-an-elixir-webserver-from-scratch.html" in pages
+      assert "bespoke-elixir-web-framework.html" in pages
     end
 
     test "returns nested page filenames" do
