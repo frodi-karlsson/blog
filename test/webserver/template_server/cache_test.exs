@@ -136,25 +136,19 @@ defmodule Webserver.TemplateServer.CacheTest do
       assert Cache.stats(name).misses == 2
     end
 
-    test "should refresh blog index", %{name: name} do
+    test "should refresh blog index and page registry together", %{name: name} do
       assert [{_, content}] =
                :ets.lookup(name, {:partial, "partials/generated_blog_items.html"})
 
       assert is_binary(content)
 
-      GenServer.cast(name, :refresh_blog_index)
-      _ = GenServer.call(name, :stats)
-
-      assert [{_, _}] = :ets.lookup(name, {:partial, "partials/generated_blog_items.html"})
-    end
-
-    test "should refresh page registry", %{name: name} do
       assert [{_, pages}] = :ets.lookup(name, :page_registry)
       assert is_list(pages)
 
-      GenServer.cast(name, :refresh_page_registry)
+      GenServer.cast(name, :refresh_content)
       _ = GenServer.call(name, :stats)
 
+      assert [{_, _}] = :ets.lookup(name, {:partial, "partials/generated_blog_items.html"})
       assert [{_, ^pages}] = :ets.lookup(name, :page_registry)
     end
   end

@@ -68,8 +68,7 @@ defmodule Webserver.Watcher do
       ["pages" | rest] ->
         filename = Path.join(rest)
         GenServer.cast(Cache, {:invalidate, filename})
-        GenServer.cast(Cache, :refresh_blog_index)
-        GenServer.cast(Cache, :refresh_page_registry)
+        GenServer.cast(Cache, :refresh_content)
         broadcast_reload(:full)
 
       ["partials" | _] ->

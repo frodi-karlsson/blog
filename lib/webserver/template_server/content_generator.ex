@@ -19,32 +19,11 @@ defmodule Webserver.TemplateServer.ContentGenerator do
     end
   end
 
-  @spec generate_blog_index(map(), map()) :: String.t()
-  def generate_blog_index(state, partials) do
+  @spec scan_pages(map()) :: [{String.t(), map()}]
+  def scan_pages(state) do
     case state.reader.list_pages(state.template_dir) do
       {:ok, filenames} ->
-        filenames
-        |> Enum.map(&read_with_meta(&1, state))
-        |> Enum.filter(fn {_filename, meta} -> FrontMatter.blog_post?(meta) end)
-        |> Enum.sort_by(fn {_filename, meta} -> meta["date"] end, :desc)
-        |> Enum.map_join("\n", fn {filename, meta} ->
-          render_blog_item(filename, meta, state, partials)
-        end)
-
-      {:error, reason} ->
-        Logger.warning(%{event: "list_pages_failed", reason: reason})
-        ""
-    end
-  end
-
-  @spec generate_page_registry(map()) :: [map()]
-  def generate_page_registry(state) do
-    case state.reader.list_pages(state.template_dir) do
-      {:ok, filenames} ->
-        filenames
-        |> Enum.map(&read_with_meta(&1, state))
-        |> Enum.reject(fn {_filename, meta} -> meta == %{} end)
-        |> Enum.map(&build_registry_entry/1)
+        Enum.map(filenames, &read_meta(&1, state))
 
       {:error, reason} ->
         Logger.warning(%{event: "list_pages_failed", reason: reason})
@@ -52,14 +31,7 @@ defmodule Webserver.TemplateServer.ContentGenerator do
     end
   end
 
-  defp build_registry_entry({filename, meta}) do
-    id = Path.rootname(filename)
-    path = meta["path"] || FrontMatter.derive_path(filename)
-    entry = %{"id" => id, "title" => meta["title"], "path" => path}
-    if meta["noindex"] == "true", do: Map.put(entry, "noindex", true), else: entry
-  end
-
-  defp read_with_meta(filename, state) do
+  defp read_meta(filename, state) do
     case state.reader.read_page(state.template_dir, filename) do
       {:ok, content} ->
         {meta, _body} = FrontMatter.parse(content)
@@ -68,6 +40,30 @@ defmodule Webserver.TemplateServer.ContentGenerator do
       _ ->
         {filename, %{}}
     end
+  end
+
+  @spec generate_blog_index([{String.t(), map()}], map(), map()) :: String.t()
+  def generate_blog_index(pages_meta, state, partials) do
+    pages_meta
+    |> Enum.filter(fn {_filename, meta} -> FrontMatter.blog_post?(meta) end)
+    |> Enum.sort_by(fn {_filename, meta} -> meta["date"] end, :desc)
+    |> Enum.map_join("\n", fn {filename, meta} ->
+      render_blog_item(filename, meta, state, partials)
+    end)
+  end
+
+  @spec generate_page_registry([{String.t(), map()}]) :: [map()]
+  def generate_page_registry(pages_meta) do
+    pages_meta
+    |> Enum.reject(fn {_filename, meta} -> meta == %{} end)
+    |> Enum.map(&build_registry_entry/1)
+  end
+
+  defp build_registry_entry({filename, meta}) do
+    id = Path.rootname(filename)
+    path = meta["path"] || FrontMatter.derive_path(filename)
+    entry = %{"id" => id, "title" => meta["title"], "path" => path}
+    if meta["noindex"] == "true", do: Map.put(entry, "noindex", true), else: entry
   end
 
   defp render_blog_item(filename, meta, state, partials) do

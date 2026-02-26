@@ -51,8 +51,20 @@ defmodule Webserver.TemplateServer.TemplateReader.File do
 
   defp do_list_pages(dir, base_dir) do
     case File.ls(dir) do
-      {:ok, entries} -> Enum.flat_map(entries, &list_entry(Path.join(dir, &1), base_dir))
-      {:error, reason} -> {:error, reason}
+      {:ok, entries} ->
+        entries
+        |> Enum.map(&Path.join(dir, &1))
+        |> Enum.reduce_while([], &collect_entry(&1, base_dir, &2))
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp collect_entry(full, base_dir, acc) do
+    case list_entry(full, base_dir) do
+      {:error, reason} -> {:halt, {:error, reason}}
+      files -> {:cont, acc ++ files}
     end
   end
 
