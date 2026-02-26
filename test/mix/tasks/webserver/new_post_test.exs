@@ -12,16 +12,27 @@ defmodule Mix.Tasks.Webserver.NewPostTest do
     {:ok, slug: slug, path: path}
   end
 
-  test "creates page file with front-matter and template", %{slug: slug, path: path} do
+  test "creates page file with valid front-matter", %{slug: slug, path: path} do
     NewPost.run(["#{slug}"])
     assert File.exists?(path)
-    content = File.read!(path)
-    assert String.starts_with?(content, "---\n")
-    assert String.contains?(content, "title: #{slug}")
-    assert String.contains?(content, "date: #{Date.utc_today() |> Date.to_iso8601()}")
-    assert String.contains?(content, "<% blog_post.html %>")
-    assert String.contains?(content, "<%/ blog_post.html %>")
-    assert String.contains?(content, "<% layout.html %>")
+
+    {meta, body} = Webserver.FrontMatter.parse(File.read!(path))
+
+    assert meta["title"] == slug
+    assert meta["date"] == Date.utc_today() |> Date.to_iso8601()
+    assert meta["canonical"] == "https://blog.frodikarlsson.com/#{slug}"
+    assert Map.has_key?(meta, "description")
+    assert Map.has_key?(meta, "summary")
+
+    assert body =~ "<% layout.html %>"
+    assert body =~ "<slot:og_type>article</slot:og_type>"
+    assert body =~ "<% blog_post.html %>"
+
+    refute body =~ "<slot:canonical>"
+    refute body =~ "<slot:description>"
+
+    today_formatted = Webserver.FrontMatter.format_date(meta["date"])
+    assert body =~ "<slot:date>#{today_formatted}</slot:date>"
   end
 
   test "slugifies title from spaces and special chars" do

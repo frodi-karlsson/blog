@@ -35,7 +35,6 @@ defmodule Webserver.Server do
         |> send_resp(200, parsed)
 
       {:error, :not_found} ->
-        # Use the custom 404 page template
         case Cache.get_page("404.html") do
           {:ok, error_parsed} ->
             conn

@@ -44,23 +44,23 @@ defmodule Mix.Tasks.Webserver.NewPost do
   end
 
   defp template(title, slug, date) do
+    formatted_date = Webserver.FrontMatter.format_date(date)
+
     """
     ---
     title: #{title}
     date: #{date}
     category:
     summary:
+    canonical: https://blog.frodikarlsson.com/#{slug}
+    description:
     ---
     <% layout.html %>
-      <slot:title>#{title}</slot:title>
-      <slot:description></slot:description>
-      <slot:canonical>https://blog.frodikarlsson.com/#{slug}</slot:canonical>
       <slot:og_type>article</slot:og_type>
       <slot:body>
         <% blog_post.html %>
           <slot:category></slot:category>
-          <slot:date></slot:date>
-          <slot:title>#{title}</slot:title>
+          <slot:date>#{formatted_date}</slot:date>
           <slot:content>
             <p>Start writing here...</p>
           </slot:content>
