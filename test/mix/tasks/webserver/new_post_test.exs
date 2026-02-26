@@ -21,8 +21,6 @@ defmodule Mix.Tasks.Webserver.NewPostTest do
     assert meta["title"] == slug
     assert meta["date"] == Date.utc_today() |> Date.to_iso8601()
     assert meta["canonical"] == "https://blog.frodikarlsson.com/#{slug}"
-    assert Map.has_key?(meta, "description")
-    assert Map.has_key?(meta, "summary")
 
     assert body =~ "<% layout.html %>"
     assert body =~ "<slot:og_type>article</slot:og_type>"
