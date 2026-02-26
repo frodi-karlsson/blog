@@ -20,12 +20,8 @@ defmodule Webserver.TemplateServer.TemplateReader do
   @callback read_page(template_dir :: String.t(), path :: String.t()) ::
               {:ok, String.t()} | {:error, term()}
 
-  @doc "Reads the blog manifest (JSON)."
-  @callback read_manifest(template_dir :: String.t()) :: {:ok, String.t()} | {:error, term()}
-
-  @doc "Reads the pages manifest (JSON)."
-  @callback read_pages_manifest(template_dir :: String.t()) ::
-              {:ok, String.t()} | {:error, term()}
+  @doc "Returns the relative filenames of all page files, e.g. index.html or admin/design-system.html."
+  @callback list_pages(template_dir :: String.t()) :: {:ok, [String.t()]} | {:error, term()}
 
   @doc "Returns the mtime for a file relative to template_dir, or nil if unavailable."
   @callback file_mtime(template_dir :: String.t(), relative_path :: String.t()) ::

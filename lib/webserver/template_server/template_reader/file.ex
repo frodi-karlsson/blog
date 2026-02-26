@@ -40,13 +40,28 @@ defmodule Webserver.TemplateServer.TemplateReader.File do
   end
 
   @impl true
-  def read_manifest(template_dir) do
-    File.read(Path.join(template_dir, "blog.json"))
+  def list_pages(template_dir) do
+    pages_dir = Path.join(template_dir, "pages")
+
+    case do_list_pages(pages_dir, pages_dir) do
+      {:error, reason} -> {:error, reason}
+      files -> {:ok, files}
+    end
   end
 
-  @impl true
-  def read_pages_manifest(template_dir) do
-    File.read(Path.join(template_dir, "pages.json"))
+  defp do_list_pages(dir, base_dir) do
+    case File.ls(dir) do
+      {:ok, entries} -> Enum.flat_map(entries, &list_entry(Path.join(dir, &1), base_dir))
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp list_entry(full, base_dir) do
+    cond do
+      File.dir?(full) -> do_list_pages(full, base_dir)
+      String.ends_with?(full, ".html") -> [Path.relative_to(full, base_dir)]
+      true -> []
+    end
   end
 
   @impl true

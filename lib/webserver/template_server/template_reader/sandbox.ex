@@ -41,11 +41,21 @@ defmodule Webserver.TemplateServer.TemplateReader.Sandbox do
   def get_partials(_template_dir), do: {:error, :not_found}
 
   @impl true
+  def list_pages("/priv/templates") do
+    {:ok, ["index.html", "building-an-elixir-webserver-from-scratch.html"]}
+  end
+
+  def list_pages(_template_dir), do: {:error, :not_found}
+
+  @impl true
   def read_page(_template_dir, path) do
     case path do
       "index.html" ->
         {:ok,
-         ~S"""
+         """
+         ---
+         title: Home
+         ---
          <% layout.html %>
            <slot:title>Home</slot:title>
            <slot:description>Sandbox Home</slot:description>
@@ -59,7 +69,13 @@ defmodule Webserver.TemplateServer.TemplateReader.Sandbox do
 
       "building-an-elixir-webserver-from-scratch.html" ->
         {:ok,
-         ~S"""
+         """
+         ---
+         title: First Post
+         date: 2024-02-24
+         category: Test
+         summary: Summary
+         ---
          <% layout.html %>
            <slot:title>First Post</slot:title>
            <slot:description>Sandbox Post</slot:description>
@@ -77,37 +93,6 @@ defmodule Webserver.TemplateServer.TemplateReader.Sandbox do
       _ ->
         {:error, :not_found}
     end
-  end
-
-  @impl true
-  def read_manifest(_template_dir) do
-    {:ok,
-     Jason.encode!([
-       %{
-         "id" => "building-an-elixir-webserver-from-scratch",
-         "title" => "Sandbox Post",
-         "date" => "Feb 24, 2024",
-         "category" => "Test",
-         "summary" => "Summary"
-       }
-     ])}
-  end
-
-  @impl true
-  def read_pages_manifest(_template_dir) do
-    {:ok,
-     Jason.encode!([
-       %{
-         "id" => "index",
-         "title" => "Home",
-         "path" => "/"
-       },
-       %{
-         "id" => "building-an-elixir-webserver-from-scratch",
-         "title" => "First Post",
-         "path" => "/building-an-elixir-webserver-from-scratch"
-       }
-     ])}
   end
 
   @impl true

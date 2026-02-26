@@ -1,9 +1,0 @@
-[
-  {
-    "id": "building-an-elixir-webserver-from-scratch",
-    "title": "How I Built This Blog from Scratch in Elixir",
-    "date": "Feb 25, 2026",
-    "category": "Elixir",
-    "summary": "A deep dive into the custom-built Elixir webserver powering this very page."
-  }
-]

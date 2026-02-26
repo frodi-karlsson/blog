@@ -15,19 +15,32 @@ defmodule Webserver.TemplateServer.TemplateReaderTest do
     end
   end
 
-  describe "read_manifest with Sandbox" do
-    test "reads blog manifest" do
-      {:ok, json} = Sandbox.read_manifest("/priv/templates")
-      assert is_binary(json)
-      assert String.contains?(json, "building-an-elixir-webserver-from-scratch")
+  describe "list_pages with Sandbox" do
+    test "returns page filenames for valid template_dir" do
+      {:ok, pages} = Sandbox.list_pages("/priv/templates")
+      assert is_list(pages)
+      assert "index.html" in pages
+      assert "building-an-elixir-webserver-from-scratch.html" in pages
+    end
+
+    test "returns error for invalid template_dir" do
+      assert Sandbox.list_pages("/invalid/path") == {:error, :not_found}
     end
   end
 
-  describe "read_pages_manifest with Sandbox" do
-    test "reads pages manifest" do
-      {:ok, json} = Sandbox.read_pages_manifest("/priv/templates")
-      assert is_binary(json)
-      assert String.contains?(json, "index")
+  describe "list_pages with File" do
+    test "returns page filenames from filesystem" do
+      base_path = :code.priv_dir(:webserver) |> to_string() |> Path.join("templates")
+      {:ok, pages} = FileReader.list_pages(base_path)
+      assert is_list(pages)
+      assert "index.html" in pages
+      assert "building-an-elixir-webserver-from-scratch.html" in pages
+    end
+
+    test "returns nested page filenames" do
+      base_path = :code.priv_dir(:webserver) |> to_string() |> Path.join("templates")
+      {:ok, pages} = FileReader.list_pages(base_path)
+      assert Enum.any?(pages, &String.contains?(&1, "/"))
     end
   end
 

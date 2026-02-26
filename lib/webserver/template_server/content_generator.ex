@@ -4,6 +4,7 @@ defmodule Webserver.TemplateServer.ContentGenerator do
   that is stored in the cache.
   """
 
+  alias Webserver.FrontMatter
   alias Webserver.Parser
   alias Webserver.Parser.ParseInput
 
@@ -20,65 +21,66 @@ defmodule Webserver.TemplateServer.ContentGenerator do
 
   @spec generate_blog_index(map(), map()) :: String.t()
   def generate_blog_index(state, partials) do
-    case state.reader.read_manifest(state.template_dir) do
-      {:ok, json} ->
-        case Jason.decode(json) do
-          {:ok, posts} ->
-            Enum.map_join(posts, "\n", &render_blog_item_if_exists(&1, state, partials))
+    case state.reader.list_pages(state.template_dir) do
+      {:ok, filenames} ->
+        filenames
+        |> Enum.map(&read_with_meta(&1, state))
+        |> Enum.filter(fn {_filename, meta} -> FrontMatter.blog_post?(meta) end)
+        |> Enum.sort_by(fn {_filename, meta} -> meta["date"] end, :desc)
+        |> Enum.map_join("\n", fn {filename, meta} ->
+          render_blog_item(filename, meta, state, partials)
+        end)
 
-          {:error, reason} ->
-            Logger.warning(%{event: "blog_manifest_decode_failed", reason: reason})
-            ""
-        end
-
-      _ ->
+      {:error, reason} ->
+        Logger.warning(%{event: "list_pages_failed", reason: reason})
         ""
     end
   end
 
   @spec generate_page_registry(map()) :: [map()]
   def generate_page_registry(state) do
-    pages =
-      case state.reader.read_pages_manifest(state.template_dir) do
-        {:ok, json} ->
-          case Jason.decode(json) do
-            {:ok, decoded} ->
-              decoded
+    case state.reader.list_pages(state.template_dir) do
+      {:ok, filenames} ->
+        filenames
+        |> Enum.map(&read_with_meta(&1, state))
+        |> Enum.reject(fn {_filename, meta} -> meta == %{} end)
+        |> Enum.map(&build_registry_entry/1)
 
-            {:error, reason} ->
-              Logger.warning(%{event: "pages_manifest_decode_failed", reason: reason})
-              []
-          end
-
-        _ ->
-          []
-      end
-
-    Enum.filter(pages, &page_exists?(&1, state))
-  end
-
-  defp page_exists?(%{"id" => id}, state) do
-    case state.reader.read_page(state.template_dir, "#{id}.html") do
-      {:ok, _} -> true
-      _ -> false
+      {:error, reason} ->
+        Logger.warning(%{event: "list_pages_failed", reason: reason})
+        []
     end
   end
 
-  defp render_blog_item_if_exists(%{"id" => id} = post, state, partials) do
-    case state.reader.read_page(state.template_dir, "#{id}.html") do
-      {:ok, _} -> render_blog_item(post, state, partials)
-      _ -> ""
+  defp build_registry_entry({filename, meta}) do
+    id = Path.rootname(filename)
+    path = meta["path"] || FrontMatter.derive_path(filename)
+    entry = %{"id" => id, "title" => meta["title"], "path" => path}
+    if meta["noindex"] == "true", do: Map.put(entry, "noindex", true), else: entry
+  end
+
+  defp read_with_meta(filename, state) do
+    case state.reader.read_page(state.template_dir, filename) do
+      {:ok, content} ->
+        {meta, _body} = FrontMatter.parse(content)
+        {filename, meta}
+
+      _ ->
+        {filename, %{}}
     end
   end
 
-  defp render_blog_item(post, state, partials) do
+  defp render_blog_item(filename, meta, state, partials) do
+    url = meta["path"] || FrontMatter.derive_path(filename)
+    date = FrontMatter.format_date(meta["date"] || "")
+
     template = """
     <% blog_index_item.html %>
-    <slot:category>#{escape(post["category"])}</slot:category>
-    <slot:date>#{escape(post["date"])}</slot:date>
-    <slot:url>#{escape("/#{post["id"]}")}</slot:url>
-    <slot:title>#{escape(post["title"])}</slot:title>
-    <slot:summary>#{escape(post["summary"])}</slot:summary>
+    <slot:category>#{escape(meta["category"])}</slot:category>
+    <slot:date>#{escape(date)}</slot:date>
+    <slot:url>#{escape(url)}</slot:url>
+    <slot:title>#{escape(meta["title"])}</slot:title>
+    <slot:summary>#{escape(meta["summary"])}</slot:summary>
     <%/ blog_index_item.html %>
     """
 

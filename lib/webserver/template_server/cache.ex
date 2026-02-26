@@ -6,6 +6,7 @@ defmodule Webserver.TemplateServer.Cache do
 
   use GenServer
 
+  alias Webserver.FrontMatter
   alias Webserver.Parser
   alias Webserver.Parser.ParseInput
   alias Webserver.TemplateServer.ContentGenerator
@@ -209,7 +210,9 @@ defmodule Webserver.TemplateServer.Cache do
 
     case state.reader.read_page(state.template_dir, path) do
       {:ok, content} ->
-        case parse_page(content, state) do
+        {_meta, body} = FrontMatter.parse(content)
+
+        case parse_page(body, state) do
           {:ok, parsed} ->
             mtime = mtime_for_file(state, "pages/#{path}")
             entry = %PageEntry{parsed: parsed, mtime: mtime, last_checked_at: now}
@@ -249,7 +252,9 @@ defmodule Webserver.TemplateServer.Cache do
 
     case state.reader.read_page(state.template_dir, path) do
       {:ok, content} ->
-        case parse_page(content, state) do
+        {_meta, body} = FrontMatter.parse(content)
+
+        case parse_page(body, state) do
           {:ok, parsed} ->
             new_entry = %PageEntry{parsed: parsed, mtime: new_mtime, last_checked_at: now}
             :ets.insert(state.table, {{:page, path}, new_entry})

@@ -8,7 +8,7 @@ A custom blog server built with Elixir. No Phoenix, no framework. Just Plug and 
 - **ETS Caching**: Concurrent template serving with automatic, event-driven invalidation.
 - **SCSS Support**: Modular design system built with Dart Sass and hot-reloading.
 - **LiveReload**: Instant browser style patching and page refreshes via SSE.
-- **Page Registry**: Centralized `pages.json` for URL management and dynamic `sitemap.xml`.
+- **Front-Matter Content**: Metadata embedded in page files drives the blog index and `sitemap.xml` automatically.
 - **Infrastructure**: Automated deployment to DigitalOcean via OpenTofu and Watchtower.
 
 ## Local Development
@@ -76,10 +76,26 @@ The Tofu code handles:
 
 ## Content Management
 
-### Blog Posts
-1. Add a new `.html` file to `priv/templates/pages/`.
-2. Add the post metadata to `priv/templates/blog.json`.
-3. The index at `/` will update automatically.
+Metadata lives in each page file as front-matter — no separate JSON files to keep in sync.
 
-### Pages
-Manage all site pages in `priv/templates/pages.json`. Use `"noindex": true` to exclude pages (like admin tools) from the sitemap.
+### New blog post
+
+```bash
+mix webserver.new_post "My Post Title"
+```
+
+Creates `priv/templates/pages/my-post-title.html` pre-filled with front-matter and the `blog_post.html` template. Fill in `category`, `summary`, and write the content — the blog index and sitemap update automatically on the next request.
+
+### Front-matter reference
+
+```
+---
+title: My Post Title
+date: 2026-02-25        # ISO 8601; shown as "Feb 25, 2026" on the index
+category: Elixir
+summary: One-line description shown on the blog index card.
+noindex: true           # Omit from sitemap (e.g. admin pages)
+---
+```
+
+A page is treated as a blog post (and appears on the index) when it has both `date` and `summary`. Pages without front-matter are still served but won't appear in the sitemap.

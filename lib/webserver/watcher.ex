@@ -64,31 +64,20 @@ defmodule Webserver.Watcher do
   defp handle_template_change(path, template_dir) do
     rel_path = Path.relative_to(path, template_dir)
 
-    cond do
-      String.ends_with?(path, "blog.json") ->
+    case Path.split(rel_path) do
+      ["pages" | rest] ->
+        filename = Path.join(rest)
+        GenServer.cast(Cache, {:invalidate, filename})
         GenServer.cast(Cache, :refresh_blog_index)
-        broadcast_reload(:full)
-
-      String.ends_with?(path, "pages.json") ->
         GenServer.cast(Cache, :refresh_page_registry)
         broadcast_reload(:full)
 
-      true ->
-        case Path.split(rel_path) do
-          ["pages" | rest] ->
-            filename = Path.join(rest)
-            GenServer.cast(Cache, {:invalidate, filename})
-            GenServer.cast(Cache, :refresh_blog_index)
-            GenServer.cast(Cache, :refresh_page_registry)
-            broadcast_reload(:full)
+      ["partials" | _] ->
+        Cache.force_refresh()
+        broadcast_reload(:full)
 
-          ["partials" | _] ->
-            Cache.force_refresh()
-            broadcast_reload(:full)
-
-          _ ->
-            :ok
-        end
+      _ ->
+        :ok
     end
   end
 
