@@ -41,6 +41,13 @@ Transfer/sec:      4.94MB</code></pre>
 
         <p>Nearly <strong>2,000 requests per second</strong> with an average latency under 55ms, on a $4 droplet. The standard deviation is low too, so the average isn't misleading.</p>
 
+        <p>For local comparison, I also ran the same <code>wrk</code> load against three routes on the dev server (cached page, a plain <code>send_resp</code>, and a per-request template parse). This isn't a production benchmark, but it makes the cache impact obvious:</p>
+
+        <pre><code>Local (localhost:8080, 4 threads, 100 connections, 30s)
+Cached page:      25,560 req/s
+Plain response:   26,256 req/s
+Uncached parse:    3,143 req/s</code></pre>
+
         <h2>Routing Requests</h2>
         <p>I used <a href="https://hexdocs.pm/plug/Plug.Router.html" target="_blank" rel="noopener noreferrer">Plug.Router</a> to handle the routing. It's a simple, declarative way to map paths to functions. Here's how the main router is structured:</p>
 
