@@ -69,6 +69,9 @@ jobs:
       - name: Install Elixir dependencies
         run: mix deps.get
 
+      - name: Install image tooling
+        run: sudo apt-get update && sudo apt-get install -y libvips-tools webp
+
       - name: Start Webserver
         run: mix run --no-halt &
         env:
