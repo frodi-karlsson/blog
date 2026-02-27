@@ -17,7 +17,7 @@ defmodule Webserver.Parser do
   @slot_regex ~r|<%\s*(.*?)\s*%>(.*?)<%/\s*\1\s*%>|s
   @named_slot_regex ~r|<slot:([a-z_]+)>(.*?)</slot:\1>|s
   @slot_placeholder_regex ~r|\{\{([a-z_]+)\}\}|
-  @manifest_tag_regex ~r|\{\%\s*([a-zA-Z0-9_\-/\.]+)\s*\%\}|
+  @manifest_tag_regex ~r|\{\%\s*([a-zA-Z0-9_\-\/\.]+)\s*\%\}|
 
   @spec parse(ParseInput.t()) :: parse_result()
   def parse(parse_input) do
