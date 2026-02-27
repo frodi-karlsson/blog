@@ -105,7 +105,7 @@ end</code></pre>
         <p><strong>Trade-offs:</strong> the HTML can be briefly stale (bounded by the check interval) and background failures don't surface to the user directly. Instead, you monitor revalidation error counters and logs.</p>
 
         <h2>A Custom Templating Language</h2>
-        <p>I wanted a component-like experience without a heavy build step, so I wrote a tiny templating language. It supports partials, named slots, and lightweight attributes.</p>
+        <p>I wrote a tiny templating language for this project. The honest reason is that I really enjoy building parsers and state machines in Elixir (I'm doing something similar on my <a href="https://github.com/frodi-karlsson/chess-ex" target="_blank" rel="noopener noreferrer">chess project</a>). It supports partials, named slots, and lightweight attributes.</p>
 
         <pre><code class="language-html">&lt;% layout.html title="My Page" %&gt;
   &lt;slot:title&gt;My Page&lt;/slot:title&gt;
@@ -143,12 +143,8 @@ end</code></pre>
         <p>Having to figure out caching, static files, and templates myself meant I actually understood what I was building. That's the point.</p>
 
         <h2>Elixir vs Node</h2>
-        <p>Most of my professional work is in TypeScript and Node. They are great tools, but where they often struggle is concurrency. Node's single-threaded event loop requires workarounds for heavy lifting. In Elixir, concurrency is a first-class citizen.</p>
-
-        <p>The Erlang VM (BEAM) is perfect for this kind of work. It doesn't have <a href="https://journal.stuffwithstuff.com/2015/02/01/what-color-is-your-function/" target="_blank" rel="noopener noreferrer">colored functions</a>. You don't think about async versus sync because the <a href="https://www.erlang.org/blog/a-brief-beam-primer/" target="_blank" rel="noopener noreferrer">BEAM</a> handles scheduling for you. Every request gets its own process, making it incredibly resilient and efficient. If a process crashes, the supervisor restarts it, and nothing else is affected.</p>
-
+        <p>Most of my professional work is in TypeScript and Node. They are great tools, but they feel very different from Elixir. What I enjoy most is how the BEAM makes concurrency so effortless. I don't have to worry about mutexes or thread pools. Running Node safely can also be tricky because JavaScript grew up in the browser where failing silently is common, not in a runtime built for error-proof systems.</p>
         <p>Building this bespoke framework over the last few days has been a great way to learn Elixir. It's a powerful, elegant language that makes building resilient systems feel natural. It's definitely a tool I'll be reaching for again.</p>
-
         <p>You can even <a href="https://github.com/frodi-karlsson/blog/blob/main/priv/templates/pages/bespoke-elixir-web-framework.html" target="_blank" rel="noopener noreferrer">view the source for this very page on GitHub</a> to see how the templating works in practice.</p>
       </slot:content>
     <%/ blog_post.html %>
