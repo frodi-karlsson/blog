@@ -33,6 +33,33 @@ defmodule Webserver.ParserTest do
            """}
       },
       %{
+        name: "self-closing tag with attributes",
+        input: ~S(<% head.html title="Hello" %/>),
+        partials: %{
+          "partials/head.html" => "<head><title>{{@title}}</title></head>"
+        },
+        template_dir: "/priv/templates",
+        output: {:ok, "<head><title>Hello</title></head>"}
+      },
+      %{
+        name: "open/close tag with attributes and slots",
+        input: "<% card.html class='x' %><slot:default>Hello</slot:default><%/ card.html %>",
+        partials: %{
+          "partials/card.html" => "<div class='{{@class}}'>{{default}}</div>"
+        },
+        template_dir: "/priv/templates",
+        output: {:ok, "<div class='x'>Hello</div>"}
+      },
+      %{
+        name: "error when attr placeholder missing",
+        input: "<% card.html %><slot:default>Hello</slot:default><%/ card.html %>",
+        partials: %{
+          "partials/card.html" => "<div class='{{@class}}'>{{default}}</div>"
+        },
+        template_dir: "/priv/templates",
+        output: {:error, {:missing_attrs, ["class"]}}
+      },
+      %{
         name: "no partials in file",
         input: ~S"""
           <html>

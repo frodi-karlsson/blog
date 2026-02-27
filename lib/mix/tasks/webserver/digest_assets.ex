@@ -4,9 +4,12 @@ defmodule Mix.Tasks.Webserver.DigestAssets do
 
   use Mix.Task
 
+  alias Webserver.Assets
+
   @static_dir "priv/static"
-  @manifest_filename "assets.json"
-  @asset_extensions [".css", ".js", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".webp"]
+  @manifest_filename Webserver.Assets.manifest_filename()
+  @meta_filename Webserver.Assets.meta_filename()
+  @asset_extensions Webserver.Assets.asset_extensions()
   @hashed_pattern ~r/\.[a-f0-9]{64}\./
 
   @impl true
@@ -26,7 +29,7 @@ defmodule Mix.Tasks.Webserver.DigestAssets do
   end
 
   defp find_digestible_assets do
-    case list_all_files(@static_dir) do
+    case Assets.list_all_files(@static_dir, relative: true) do
       {:ok, files} ->
         {:ok, files |> Enum.filter(&digestible?/1) |> Enum.sort()}
 
@@ -38,35 +41,8 @@ defmodule Mix.Tasks.Webserver.DigestAssets do
   defp digestible?(relative_path) do
     Path.extname(relative_path) in @asset_extensions and
       not String.ends_with?(relative_path, @manifest_filename) and
+      not String.ends_with?(relative_path, @meta_filename) and
       not Regex.match?(@hashed_pattern, relative_path)
-  end
-
-  defp list_all_files(dir) do
-    case File.ls(dir) do
-      {:ok, entries} ->
-        files =
-          entries
-          |> Enum.flat_map(&list_files_recursively(Path.join(dir, &1), dir))
-
-        {:ok, files}
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
-  defp list_files_recursively(path, base_dir) do
-    if File.dir?(path) do
-      case File.ls(path) do
-        {:ok, entries} ->
-          Enum.flat_map(entries, &list_files_recursively(Path.join(path, &1), base_dir))
-
-        {:error, _} ->
-          []
-      end
-    else
-      [Path.relative_to(path, base_dir)]
-    end
   end
 
   defp digest_assets(assets) do

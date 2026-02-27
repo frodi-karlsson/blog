@@ -23,7 +23,7 @@ canonical: https://blog.frodikarlsson.com/bespoke-elixir-web-framework
         <p>The entire application is hosted on the cheapest DigitalOcean droplet available for just <strong>$4 a month</strong>. Despite the minimal resources, it achieves near-perfect Lighthouse scores. The combination of Elixir's efficiency and a lack of client-side bloat makes it incredibly fast.</p>
 
         <figure>
-          <img src="{% /static/img/web-vitals.png %}" alt="Web Vitals: Performance 99, Accessibility 100, Best Practices 100, SEO 100" />
+          <% img src='/static/img/web-vitals.png' alt='Web Vitals: Performance 99, Accessibility 100, Best Practices 100, SEO 100' sizes='(min-width: 768px) 728px, 100vw' %/>
           <figcaption>Lighthouse scores for this very page.</figcaption>
         </figure>
 
@@ -105,25 +105,33 @@ end</code></pre>
         <p><strong>Trade-offs:</strong> the HTML can be briefly stale (bounded by the check interval) and background failures don't surface to the user directly. Instead, you monitor revalidation error counters and logs.</p>
 
         <h2>A Custom Templating Language</h2>
-        <p>I wanted a component-like experience without a heavy build step. I wrote a small templating system that supports partials and named slots using recursive regex.</p>
+        <p>I wanted a component-like experience without a heavy build step, so I wrote a tiny templating language. It supports partials, named slots, and lightweight attributes.</p>
 
-        <pre><code class="language-html">&lt;% layout.html %&gt;
+        <pre><code class="language-html">&lt;% layout.html title="My Page" %&gt;
   &lt;slot:title&gt;My Page&lt;/slot:title&gt;
   &lt;slot:body&gt;
     &lt;% header.html %/&gt;
     &lt;p&gt;Content goes here.&lt;/p&gt;
   &lt;/slot:body&gt;
-&lt;%/ layout.html %&gt;</code></pre>
+ &lt;%/ layout.html %&gt;</code></pre>
 
-        <p>The parser works by scanning for component tags. When it finds a tag like <code>&lt;% layout.html %&gt;</code>, it extracts the inner content and immediately runs itself on that content. This allows for arbitrary nesting: a layout can contain a blog post component, which itself contains other partials or slots.
+        <p>The parser is a simple tag scanner: it walks the input, finds <code>&lt;% ... %&gt;</code> tags, and renders depth-first so child content is fully resolved before the parent partial is applied. Slots are passed via <code>&lt;slot:name&gt;...&lt;/slot:name&gt;</code> and injected into the partial with <code>{{name}}</code>. Attributes are passed on the component tag and injected with <code>{{@attr}}</code> (and missing required attrs are treated as an error, which makes mistakes loud).</p>
 
-        Once the inner content is fully resolved, the parser scans it for <code>&lt;slot:name&gt;</code> tags to build a map of content for the parent component. Finally, it loads the partial file (e.g., <code>layout.html</code>) and replaces its <code>{{name}}</code> placeholders with the resolved slot content. This 'depth-first' approach ensures that every component has access to its fully rendered children before it renders itself.</p>
+        <p>Static assets are referenced with <code>&#123;&#123;+ /static/...&#125;&#125;</code> placeholders which resolve through the digested asset manifest in production (and pass through as-is in development). That keeps templates readable while still getting long-cache hashed filenames.</p>
+
+        <p>For images, there is a dedicated <code>&lt;% img ... %/&gt;</code> tag. It validates that the source is a real <code>/static</code> image, looks up width/height from a build-generated <code>assets_meta.json</code>, and emits responsive <code>srcset</code>. If a WebP variant exists it wraps the output in a <code>&lt;picture&gt;</code> with a WebP <code>&lt;source&gt;</code>.
+        That means the HTML gets correct intrinsic sizing (no CLS), and the browser can pick an appropriately sized image.</p>
+
+        <h2>Static Assets and Build Pipeline</h2>
+        <p>There is an explicit asset build step that does a bit more than just copying files. In production it generates responsive raster variants (via <code>vips</code>), generates WebP variants (via <code>cwebp</code>), writes <code>assets_meta.json</code> for dimensions, and then digests the output for cache busting. The build is strict in production: missing tooling or failed conversions will fail the build instead of silently shipping a broken page.</p>
 
         <h2>Live Reload</h2>
         <p>For a smooth development experience, I implemented live reloading. The server watches the filesystem using <a href="https://github.com/synrc/fs" target="_blank" rel="noopener noreferrer">fs</a>. The browser keeps an SSE connection open, and when a change is detected, the server sends a signal to reload the page or swap CSS in place.</p>
 
         <h2>Hosting and Deployment</h2>
         <p>Deployment fully automated with GitHub Actions and Docker. When I push to <code>main</code>, an image is built and pushed to GHCR. On the droplet, <a href="https://containrrr.dev/watchtower/" target="_blank" rel="noopener noreferrer">Watchtower</a> detects the new image and restarts the container within 30 seconds. No manual intervention required.</p>
+
+        <p>Because image variants are generated during the build, the Docker image also includes the required native tools (<code>libvips</code> and <code>webp</code>) so production builds are reproducible.</p>
 
         <p>After the first deploy I hit an annoying issue: the container would slowly degrade and eventually start returning internal 503s. The root cause turned out to be the Docker <code>HEALTHCHECK</code>. I originally used <code>./bin/webserver eval "IO.puts(:ok)"</code>, which spawns a separate BEAM instance every check. On a tiny droplet that can time out and create unnecessary pressure. The fix was to switch the healthcheck to a simple HTTP probe against <code>/health</code>.</p>
 

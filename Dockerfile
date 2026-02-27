@@ -1,7 +1,7 @@
 FROM elixir:1.19.5-slim AS build
 
 RUN apt-get update && \
-    apt-get install -y build-essential bash ca-certificates && \
+    apt-get install -y build-essential bash ca-certificates libvips-tools webp && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

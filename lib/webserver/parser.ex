@@ -3,21 +3,27 @@ defmodule Webserver.Parser do
   Parses the custom HTML templating language, returning fully rendered HTML.
   """
 
-  alias Webserver.Parser.{ParseInput, Resolver}
+  alias Webserver.Parser.{Img, ParseInput, Resolver, Tags}
 
   @type parse_error ::
           {:ref_not_found, String.t()}
           | {:missing_slots, [String.t()]}
+          | {:missing_attrs, [String.t()]}
           | {:unexpected_slots, [String.t()]}
-          | {:unresolved_injection, String.t()}
+          | {:unresolved_asset, String.t()}
+          | {:unresolved_image_meta, String.t()}
+          | {:non_image_src, String.t()}
+          | {:malformed_tag, String.t()}
+          | {:unclosed_tag, String.t()}
 
   @type parse_result :: {:ok, String.t()} | {:error, parse_error()}
 
-  @self_closing_regex ~r|<%(.*?)%/>|
-  @slot_regex ~r|<%\s*(.*?)\s*%>(.*?)<%/\s*\1\s*%>|s
   @named_slot_regex ~r|<slot:([a-z_]+)>(.*?)</slot:\1>|s
   @slot_placeholder_regex ~r|\{\{([a-z_]+)\}\}|
-  @manifest_tag_regex ~r|\{\%\s*([a-zA-Z0-9_\-\/\.]+)\s*\%\}|
+  @attr_placeholder_regex ~r|\{\{@([a-zA-Z0-9_\-]+)\}\}|
+  @asset_placeholder_regex ~r|\{\{\+\s*([^}]+?)\s*\}\}|
+
+  @asset_tag_deprecation "asset tag is no longer supported; use {{+ /static/...}}"
 
   @spec parse(ParseInput.t()) :: parse_result()
   def parse(parse_input) do
@@ -30,13 +36,7 @@ defmodule Webserver.Parser do
       metadata
     )
 
-    result =
-      with {:ok, processed_file} <- process_slots(parse_input.file, parse_input),
-           {:ok, content_after_self_closing} <- process_self_closing(processed_file, parse_input) do
-        resolve_injections(content_after_self_closing)
-      else
-        error -> error
-      end
+    result = render_tags(parse_input.file, parse_input)
 
     duration = System.monotonic_time() - start_time
     :telemetry.execute([:webserver, :parser, :stop], %{duration: duration}, metadata)
@@ -44,90 +44,124 @@ defmodule Webserver.Parser do
     result
   end
 
-  defp resolve_injections(content) do
-    @manifest_tag_regex
-    |> Regex.scan(content, return: :index)
-    |> Enum.reverse()
-    |> Enum.reduce_while({:ok, content}, fn
-      [{match_start, match_len}, {key_start, key_len}], {:ok, acc} ->
-        injection_key = binary_part(content, key_start, key_len)
-
-        case resolve_manifest_path(injection_key) do
-          {:ok, resolved} ->
-            prefix = binary_part(acc, 0, match_start)
-
-            suffix =
-              binary_part(acc, match_start + match_len, byte_size(acc) - match_start - match_len)
-
-            {:cont, {:ok, prefix <> resolved <> suffix}}
-
-          {:error, :not_found} ->
-            {:halt, {:error, {:unresolved_injection, injection_key}}}
-        end
-    end)
+  defp render_tags(content, %ParseInput{} = parse_input) when is_binary(content) do
+    with {:ok, rendered_iodata, rest} <- render_until(content, parse_input, nil, []) do
+      if rest == "" do
+        rendered = IO.iodata_to_binary(rendered_iodata)
+        resolve_asset_placeholders(rendered, parse_input)
+      else
+        {:error, {:malformed_tag, "unexpected trailing content"}}
+      end
+    end
   end
 
-  defp resolve_manifest_path(manifest_key) do
-    if Application.get_env(:webserver, :live_reload, false) do
-      {:ok, manifest_key}
+  defp render_until(content, %ParseInput{} = parse_input, stop_name, acc)
+       when is_binary(content) and is_list(acc) do
+    case :binary.match(content, "<%") do
+      :nomatch ->
+        render_until_no_more_tags(content, stop_name, acc)
+
+      {idx, 2} ->
+        {prefix, rest} = split_at_open_tag(content, idx)
+
+        with {:ok, tag, suffix_after_tag} <- Tags.next_tag(rest) do
+          process_tag(tag, prefix, suffix_after_tag, parse_input, stop_name, acc)
+        end
+    end
+  end
+
+  defp render_until_no_more_tags(content, stop_name, acc) do
+    if is_nil(stop_name) do
+      {:ok, [acc, content], ""}
     else
-      Webserver.AssetServer.resolve(manifest_key)
+      {:error, {:unclosed_tag, stop_name}}
     end
   end
 
-  defp process_slots(file, parse_input) do
-    case Regex.run(@slot_regex, file, return: :index) do
-      nil ->
-        {:ok, file}
+  defp split_at_open_tag(content, idx) do
+    prefix = binary_part(content, 0, idx)
+    rest = binary_part(content, idx + 2, byte_size(content) - (idx + 2))
+    {prefix, rest}
+  end
 
-      [{start, len}, {name_start, name_len}, {content_start, content_len}] ->
-        name = binary_part(file, name_start, name_len)
-        content = binary_part(file, content_start, content_len)
-
-        case render_and_replace_slot(name, content, parse_input, file, start, len) do
-          {:ok, processed} -> process_slots(processed, parse_input)
-          error -> error
-        end
+  defp process_tag({:close, name}, prefix, suffix_after_tag, _parse_input, stop_name, acc) do
+    if stop_name == name do
+      {:ok, [acc, prefix], suffix_after_tag}
+    else
+      {:error, {:malformed_tag, "unexpected closing tag: #{name}"}}
     end
   end
 
-  defp render_and_replace_slot(name, content, parse_input, file, start, len) do
-    case render_partial(name, content, parse_input) do
-      {:ok, rendered} ->
-        prefix = if start > 0, do: binary_part(file, 0, start), else: ""
-        suffix = binary_part(file, start + len, byte_size(file) - (start + len))
-        {:ok, prefix <> rendered <> suffix}
-
-      error ->
-        error
+  defp process_tag({:self, name, attrs}, prefix, suffix_after_tag, parse_input, stop_name, acc) do
+    with {:ok, replacement} <- render_self_tag(name, attrs, parse_input) do
+      render_until(suffix_after_tag, parse_input, stop_name, [acc, prefix, replacement])
     end
   end
 
-  defp render_partial(name, raw_content, parse_input) do
+  defp process_tag({:open, name, attrs}, prefix, suffix_after_tag, parse_input, stop_name, acc) do
+    with {:ok, rendered_body, rest_after_close} <-
+           render_until(suffix_after_tag, parse_input, name, []),
+         {:ok, replacement} <-
+           rendered_body
+           |> IO.iodata_to_binary()
+           |> then(&render_open_tag(name, attrs, &1, parse_input)) do
+      render_until(rest_after_close, parse_input, stop_name, [acc, prefix, replacement])
+    end
+  end
+
+  defp render_self_tag("asset", _attrs, _parse_input) do
+    {:error, {:malformed_tag, @asset_tag_deprecation}}
+  end
+
+  defp render_self_tag("img", attrs, parse_input) do
+    with {:ok, iodata} <- Img.render(attrs, parse_input) do
+      {:ok, IO.iodata_to_binary(iodata)}
+    end
+  end
+
+  defp render_self_tag(name, attrs, parse_input) do
+    render_partial(name, "", attrs, parse_input)
+  end
+
+  defp render_open_tag("asset", _attrs, _body, _parse_input) do
+    {:error, {:malformed_tag, @asset_tag_deprecation}}
+  end
+
+  defp render_open_tag("img", _attrs, _body, _parse_input) do
+    {:error, {:malformed_tag, "img tag must be self-closing"}}
+  end
+
+  defp render_open_tag(name, attrs, body, parse_input) do
+    render_partial(name, body, attrs, parse_input)
+  end
+
+  defp render_partial(name, raw_content, attrs, parse_input) do
     partial_name = String.trim(name)
 
     case Resolver.resolve_partial_reference(partial_name, parse_input) do
       partial when is_binary(partial) ->
-        render_partial_with_slots(partial, raw_content, parse_input)
+        render_partial_with_slots_and_attrs(partial, raw_content, attrs, parse_input)
 
       nil ->
         {:error, {:ref_not_found, partial_name}}
     end
   end
 
-  defp render_partial_with_slots(partial, raw_content, parse_input) do
+  defp render_partial_with_slots_and_attrs(partial, raw_content, attrs, parse_input) do
     case extract_named_slots(raw_content, parse_input) do
       {:ok, _content, slot_map} ->
         expected_slots = extract_expected_slots(partial)
         slot_map = merge_metadata_slots(slot_map, expected_slots, parse_input.metadata)
+        expected_attrs = extract_expected_attrs(partial)
 
-        case validate_slots(expected_slots, slot_map) do
-          :ok ->
-            rendered = replace_slots(partial, slot_map, expected_slots)
-            process_self_closing(rendered, parse_input)
+        with :ok <- validate_slots(expected_slots, slot_map),
+             :ok <- validate_attrs(expected_attrs, attrs) do
+          rendered =
+            partial
+            |> replace_slots(slot_map, expected_slots)
+            |> replace_attrs(attrs, expected_attrs)
 
-          error ->
-            error
+          render_tags(rendered, parse_input)
         end
 
       error ->
@@ -150,20 +184,38 @@ defmodule Webserver.Parser do
   defp maybe_put_slot(nil, acc, _name), do: acc
   defp maybe_put_slot(val, acc, name), do: Map.put(acc, name, to_string(val))
 
-  defp process_self_closing(content, parse_input) do
+  defp resolve_asset_placeholders(content, parse_input) do
+    matches = Regex.scan(@asset_placeholder_regex, content, return: :index)
+
+    if matches == [] do
+      {:ok, content}
+    else
+      with {:ok, rendered_iodata} <-
+             resolve_asset_placeholder_matches(content, matches, parse_input) do
+        {:ok, IO.iodata_to_binary(rendered_iodata)}
+      end
+    end
+  end
+
+  defp resolve_asset_placeholder_matches(content, matches, parse_input)
+       when is_binary(content) and is_list(matches) do
     result =
-      @self_closing_regex
-      |> Regex.scan(content, return: :index)
-      |> Enum.reduce_while({0, ""}, fn
-        [{start, len}, {name_start, name_len}], {cursor, acc} ->
-          ref = content |> binary_part(name_start, name_len) |> String.trim()
+      Enum.reduce_while(matches, {0, []}, fn
+        [{full_start, full_len}, {path_start, path_len}], {cursor, acc} ->
+          prefix = binary_part(content, cursor, full_start - cursor)
 
-          case Resolver.resolve_partial_reference(ref, parse_input) do
-            nil ->
-              {:halt, {:error, {:ref_not_found, ref}}}
+          path =
+            content
+            |> binary_part(path_start, path_len)
+            |> String.trim()
+            |> strip_wrapping_quotes()
 
-            str when is_binary(str) ->
-              {:cont, {start + len, acc <> binary_part(content, cursor, start - cursor) <> str}}
+          case resolve_asset(path, parse_input) do
+            {:ok, resolved} ->
+              {:cont, {full_start + full_len, [acc, prefix, resolved]}}
+
+            {:error, _} = error ->
+              {:halt, error}
           end
       end)
 
@@ -171,10 +223,32 @@ defmodule Webserver.Parser do
       {:error, _} = error ->
         error
 
-      {cursor, acc} ->
-        {:ok, acc <> binary_part(content, cursor, byte_size(content) - cursor)}
+      {cursor, iodata} when is_integer(cursor) ->
+        suffix = binary_part(content, cursor, byte_size(content) - cursor)
+        {:ok, [iodata, suffix]}
     end
   end
+
+  defp resolve_asset(path, %ParseInput{} = _parse_input) do
+    if Application.get_env(:webserver, :live_reload, false) do
+      {:ok, path}
+    else
+      case Webserver.AssetServer.resolve(path) do
+        {:ok, resolved} -> {:ok, resolved}
+        {:error, :not_found} -> {:error, {:unresolved_asset, path}}
+      end
+    end
+  end
+
+  defp strip_wrapping_quotes(<<q::binary-size(1), rest::binary>>) when q in ["\"", "'"] do
+    if String.ends_with?(rest, q) and byte_size(rest) >= 1 do
+      String.trim_trailing(rest, q)
+    else
+      q <> rest
+    end
+  end
+
+  defp strip_wrapping_quotes(other), do: other
 
   defp extract_named_slots(content, parse_input) do
     case Regex.run(@named_slot_regex, content, return: :index) do
@@ -187,7 +261,7 @@ defmodule Webserver.Parser do
         full_match = binary_part(content, slot_start, slot_len)
         new_content = String.replace(content, full_match, "{{#{slot_name}}}", global: false)
 
-        with {:ok, processed} <- process_slots(slot_content, parse_input),
+        with {:ok, processed} <- render_tags(slot_content, parse_input),
              {:ok, remaining, more_slots} <- extract_named_slots(new_content, parse_input) do
           {:ok, remaining, Map.put(more_slots, slot_name, processed)}
         end
@@ -196,6 +270,13 @@ defmodule Webserver.Parser do
 
   defp extract_expected_slots(partial) do
     @slot_placeholder_regex
+    |> Regex.scan(partial)
+    |> Enum.map(fn [_, name] -> name end)
+    |> Enum.uniq()
+  end
+
+  defp extract_expected_attrs(partial) do
+    @attr_placeholder_regex
     |> Regex.scan(partial)
     |> Enum.map(fn [_, name] -> name end)
     |> Enum.uniq()
@@ -215,12 +296,35 @@ defmodule Webserver.Parser do
     end
   end
 
+  defp validate_attrs(expected, attrs) do
+    provided = attrs |> Map.keys() |> MapSet.new()
+    expected_set = MapSet.new(expected)
+    missing = expected_set |> MapSet.difference(provided) |> MapSet.to_list()
+
+    if missing == [] do
+      :ok
+    else
+      {:error, {:missing_attrs, missing}}
+    end
+  end
+
   defp replace_slots(partial, slot_map, expected_slots) do
-    Enum.reduce(expected_slots, partial, fn slot_name, acc ->
-      case slot_map[slot_name] do
-        content when is_binary(content) -> String.replace(acc, "{{#{slot_name}}}", content)
-        nil -> acc
-      end
-    end)
+    if expected_slots == [] do
+      partial
+    else
+      Regex.replace(@slot_placeholder_regex, partial, fn _match, slot_name ->
+        Map.fetch!(slot_map, slot_name)
+      end)
+    end
+  end
+
+  defp replace_attrs(partial, attrs, expected_attrs) do
+    if expected_attrs == [] do
+      partial
+    else
+      Regex.replace(@attr_placeholder_regex, partial, fn _match, attr_name ->
+        Map.fetch!(attrs, attr_name)
+      end)
+    end
   end
 end

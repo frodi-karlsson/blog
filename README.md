@@ -16,7 +16,10 @@ A custom blog server built with Elixir. No Phoenix, no framework. Just Plug and 
 ### Prerequisites
 
 - Elixir 1.19+ & Erlang 27+
-- Sass (installed automatically via `mix sass.install`)
+- System deps (used by `mix assets.build`):
+  - `vips` and `vipsheader` (libvips)
+  - `cwebp` (WebP tools)
+- Sass (Dart Sass installed automatically via `mix sass.install`)
 
 ### Setup
 
@@ -28,7 +31,13 @@ A custom blog server built with Elixir. No Phoenix, no framework. Just Plug and 
    ```bash
    mix sass.install
    ```
-3. Start the server:
+3. Verify system deps:
+   ```bash
+   vips --version
+   vipsheader --version
+   cwebp -version
+   ```
+4. Start the server:
    ```bash
    iex -S mix
    ```

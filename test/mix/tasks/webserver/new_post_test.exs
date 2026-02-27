@@ -12,7 +12,7 @@ defmodule Mix.Tasks.Webserver.NewPostTest do
     {:ok, slug: slug, path: path}
   end
 
-  test "creates page file with valid front-matter", %{slug: slug, path: path} do
+  test "should create page file with valid front-matter", %{slug: slug, path: path} do
     NewPost.run(["#{slug}"])
     assert File.exists?(path)
 
@@ -33,7 +33,7 @@ defmodule Mix.Tasks.Webserver.NewPostTest do
     assert body =~ "<slot:date>#{today_formatted}</slot:date>"
   end
 
-  test "slugifies title from spaces and special chars" do
+  test "should slugify title from spaces and special chars" do
     title = "My First Blog Post!"
     slug = "my-first-blog-post"
     path = Path.join(@pages_dir, "#{slug}.html")
@@ -46,7 +46,7 @@ defmodule Mix.Tasks.Webserver.NewPostTest do
     assert String.contains?(content, "/#{slug}")
   end
 
-  test "raises if file already exists", %{slug: slug, path: path} do
+  test "should raise if file already exists", %{slug: slug, path: path} do
     File.write!(path, "existing content")
 
     assert_raise Mix.Error, ~r/already exists/, fn ->
@@ -54,7 +54,7 @@ defmodule Mix.Tasks.Webserver.NewPostTest do
     end
   end
 
-  test "raises when no title given" do
+  test "should raise when no title given" do
     assert_raise Mix.Error, ~r/Usage/, fn ->
       NewPost.run([])
     end

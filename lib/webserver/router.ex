@@ -27,7 +27,7 @@ defmodule Webserver.Router do
   plug(Plug.Static,
     at: "/static",
     from: {:webserver, "priv/static"},
-    gzip: false,
+    gzip: true,
     headers: %{"cache-control" => @static_cache_control}
   )
 

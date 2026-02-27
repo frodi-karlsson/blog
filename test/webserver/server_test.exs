@@ -32,7 +32,7 @@ defmodule Webserver.ServerTest do
       end
     end
 
-    test "returns 405 for non-GET methods" do
+    test "should return 405 for non-GET methods" do
       conn = Plug.Test.conn(:post, "/")
       conn = Webserver.Server.call(conn, [])
       assert conn.status == 405
@@ -40,7 +40,7 @@ defmodule Webserver.ServerTest do
   end
 
   describe "parser error handling" do
-    test "returns error for missing slots" do
+    test "should return error for missing slots" do
       partials = %{
         "partials/head.html" => "<head><title>Test</title></head>",
         "partials/page.html" => "<html><head>{{title}}</head><body>{{body}}</body></html>"
@@ -60,7 +60,7 @@ defmodule Webserver.ServerTest do
                })
     end
 
-    test "returns error for unexpected slots" do
+    test "should return error for unexpected slots" do
       partials = %{
         "partials/head.html" => "<head><title>Test</title></head>",
         "partials/page.html" => "<html><head>{{title}}</head><body>{{body}}</body></html>"

@@ -56,7 +56,7 @@ defmodule Webserver.FrontMatterTest do
     ]
 
     for tc <- @cases do
-      test "#{tc.name}" do
+      test "should parse: #{tc.name}" do
         tc = unquote(Macro.escape(tc))
         {meta, body} = FrontMatter.parse(tc.input)
         assert meta == tc.metadata
@@ -66,19 +66,19 @@ defmodule Webserver.FrontMatterTest do
   end
 
   describe "blog_post?/1" do
-    test "returns true when date and summary present" do
+    test "should return true when date and summary present" do
       assert FrontMatter.blog_post?(%{"date" => "2026-02-25", "summary" => "A summary"})
     end
 
-    test "returns false when only date present" do
+    test "should return false when only date present" do
       refute FrontMatter.blog_post?(%{"date" => "2026-02-25"})
     end
 
-    test "returns false when only summary present" do
+    test "should return false when only summary present" do
       refute FrontMatter.blog_post?(%{"summary" => "A summary"})
     end
 
-    test "returns false for empty metadata" do
+    test "should return false for empty metadata" do
       refute FrontMatter.blog_post?(%{})
     end
   end
@@ -92,13 +92,13 @@ defmodule Webserver.FrontMatterTest do
     ]
 
     for tc <- @cases do
-      test "formats #{tc.input}" do
+      test "should format #{tc.input}" do
         tc = unquote(Macro.escape(tc))
         assert FrontMatter.format_date(tc.input) == tc.output
       end
     end
 
-    test "returns original string for invalid date" do
+    test "should return original string for invalid date" do
       assert FrontMatter.format_date("not-a-date") == "not-a-date"
     end
   end
@@ -116,7 +116,7 @@ defmodule Webserver.FrontMatterTest do
     ]
 
     for tc <- @cases do
-      test "derives path from #{tc.input}" do
+      test "should derive path from #{tc.input}" do
         tc = unquote(Macro.escape(tc))
         assert FrontMatter.derive_path(tc.input) == tc.output
       end

@@ -28,13 +28,7 @@ defmodule Webserver.TemplateServer.TemplateReader.Sandbox do
        </html>
        """,
        "partials/header_assets.html" => "<header-assets/>",
-       "partials/footer_assets.html" => "<footer-assets/>",
-       "partials/blog.html" => ~S"""
-       <div class="blog">
-         <h1 class="title">
-         <p class="body">
-       </div>
-       """
+       "partials/footer_assets.html" => "<footer-assets/>"
      }}
   end
 
@@ -86,9 +80,6 @@ defmodule Webserver.TemplateServer.TemplateReader.Sandbox do
            </slot:body>
          <%/ layout.html %>
          """}
-
-      "blog.html" ->
-        {:error, :eisdir}
 
       _ ->
         {:error, :not_found}
