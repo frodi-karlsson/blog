@@ -30,8 +30,11 @@ FROM debian:trixie-slim AS app
 
 RUN apt-get update && \
     apt-get upgrade -y && \
-    apt-get install -y openssl ca-certificates && \
+    apt-get install -y openssl ca-certificates wget && \
     rm -rf /var/lib/apt/lists/*
+
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
 
 RUN groupadd -r webserver && useradd -r -g webserver webserver
 
@@ -41,7 +44,8 @@ COPY --from=build --chown=webserver:webserver /app/_build/prod/rel/webserver ./
 USER webserver
 
 EXPOSE 4040
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD ./bin/webserver eval "IO.puts(:ok)" || exit 1
+
+HEALTHCHECK --interval=60s --timeout=3s --start-period=30s --retries=3 \
+    CMD wget -q -O /dev/null http://127.0.0.1:4040/health || exit 1
 
 CMD ["bin/webserver", "start"]
