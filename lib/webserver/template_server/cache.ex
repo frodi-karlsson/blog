@@ -49,7 +49,8 @@ defmodule Webserver.TemplateServer.Cache do
   @spec stats(atom() | pid()) :: %{
           hits: non_neg_integer(),
           misses: non_neg_integer(),
-          revalidations: non_neg_integer()
+          revalidations: non_neg_integer(),
+          revalidation_errors: non_neg_integer()
         }
   def stats(server \\ __MODULE__) do
     table = table_for(server)
@@ -57,7 +58,8 @@ defmodule Webserver.TemplateServer.Cache do
     %{
       hits: get_stat(table, :stats_hits),
       misses: get_stat(table, :stats_misses),
-      revalidations: get_stat(table, :stats_revalidations)
+      revalidations: get_stat(table, :stats_revalidations),
+      revalidation_errors: get_stat(table, :stats_revalidation_errors)
     }
   end
 
@@ -74,12 +76,22 @@ defmodule Webserver.TemplateServer.Cache do
   @spec force_refresh(atom() | pid()) :: :ok | {:error, term()}
   def force_refresh(server \\ __MODULE__), do: GenServer.call(server, :force_refresh)
 
-  defp handle_maybe_stale(table, server, path, entry) do
+  defp handle_maybe_stale(table, server, path, %PageEntry{} = entry) do
     [{:config, {_template_dir, interval, _reader, _live_reload?}}] = :ets.lookup(table, :config)
     now = System.system_time(:millisecond)
 
     if interval == 0 or now - entry.last_checked_at >= interval do
-      GenServer.call(server, {:revalidate, path, entry, now})
+      telemetry_execute([:cache, :hit], %{count: 1}, %{path: path, status: :stale})
+      safe_update_counter(table, :stats_hits)
+
+      new_entry = %PageEntry{entry | last_checked_at: now}
+      :ets.insert(table, {{:page, path}, new_entry})
+
+      if :ets.insert_new(table, {{:revalidate_in_flight, path}, true}) do
+        GenServer.cast(server, {:revalidate_async, path, now})
+      end
+
+      {:ok, entry.parsed}
     else
       telemetry_execute([:cache, :hit], %{count: 1}, %{path: path})
       safe_update_counter(table, :stats_hits)
@@ -101,6 +113,7 @@ defmodule Webserver.TemplateServer.Cache do
     :ets.insert(table, {:stats_hits, 0})
     :ets.insert(table, {:stats_misses, 0})
     :ets.insert(table, {:stats_revalidations, 0})
+    :ets.insert(table, {:stats_revalidation_errors, 0})
 
     Logger.info(%{event: "cache_initializing", template_dir: template_dir, reader: reader})
 
@@ -131,6 +144,25 @@ defmodule Webserver.TemplateServer.Cache do
   end
 
   @impl true
+  def handle_cast({:revalidate_async, path, checked_at}, state) do
+    result =
+      case :ets.lookup(state.table, {:page, path}) do
+        [{_, %PageEntry{} = current_entry}] ->
+          if current_entry.last_checked_at > checked_at do
+            {:noreply, state}
+          else
+            do_revalidate_async(path, current_entry, checked_at, state)
+          end
+
+        _ ->
+          {:noreply, state}
+      end
+
+    :ets.delete(state.table, {:revalidate_in_flight, path})
+    result
+  end
+
+  @impl true
   def handle_call({:fetch_and_cache, path}, _from, state) do
     case :ets.lookup(state.table, {:page, path}) do
       [{_, %PageEntry{parsed: parsed}}] ->
@@ -142,23 +174,6 @@ defmodule Webserver.TemplateServer.Cache do
     end
   end
 
-  @impl true
-  def handle_call({:revalidate, path, entry, now}, _from, state) do
-    current_entry =
-      case :ets.lookup(state.table, {:page, path}) do
-        [{_, e}] -> e
-        _ -> entry
-      end
-
-    if current_entry.last_checked_at > entry.last_checked_at do
-      safe_update_counter(state.table, :stats_hits)
-      {:reply, {:ok, current_entry.parsed}, state}
-    else
-      do_revalidate(path, entry, now, state)
-    end
-  end
-
-  @impl true
   def handle_call(:stats, _from, state) do
     {:reply, stats(state.table), state}
   end
@@ -169,11 +184,38 @@ defmodule Webserver.TemplateServer.Cache do
     :ets.insert(state.table, {:stats_hits, 0})
     :ets.insert(state.table, {:stats_misses, 0})
     :ets.insert(state.table, {:stats_revalidations, 0})
+    :ets.insert(state.table, {:stats_revalidation_errors, 0})
 
     case load_and_generate_all(state) do
       {:ok, new_state} -> {:reply, :ok, new_state}
       {:error, reason} -> {:reply, {:error, reason}, state}
     end
+  end
+
+  defp do_revalidate_async(path, %PageEntry{} = entry, checked_at, state) do
+    new_mtime = mtime_for_file(state, "pages/#{path}")
+
+    if new_mtime != entry.mtime do
+      telemetry_execute([:cache, :revalidate], %{count: 1}, %{path: path, reason: :mtime_changed})
+      safe_update_counter(state.table, :stats_revalidations)
+
+      with {:ok, content} <- state.reader.read_page(state.template_dir, path),
+           {meta, body} <- FrontMatter.parse(content),
+           {:ok, parsed} <- parse_page(body, meta, state) do
+        new_entry = %PageEntry{parsed: parsed, mtime: new_mtime, last_checked_at: checked_at}
+        :ets.insert(state.table, {{:page, path}, new_entry})
+      else
+        {:error, reason} ->
+          safe_update_counter(state.table, :stats_revalidation_errors)
+          Logger.warning(%{event: "page_revalidate_failed", path: path, reason: reason})
+
+        other ->
+          safe_update_counter(state.table, :stats_revalidation_errors)
+          Logger.warning(%{event: "page_revalidate_failed", path: path, reason: other})
+      end
+    end
+
+    {:noreply, state}
   end
 
   defp load_and_generate_all(state) do
@@ -217,48 +259,6 @@ defmodule Webserver.TemplateServer.Cache do
 
       {:error, reason} ->
         {:reply, {:error, reason}, state}
-    end
-  end
-
-  defp do_revalidate(path, entry, now, state) do
-    new_mtime = mtime_for_file(state, "pages/#{path}")
-
-    if new_mtime != entry.mtime do
-      perform_revalidation(path, new_mtime, now, state)
-    else
-      telemetry_execute([:cache, :hit], %{count: 1}, %{path: path, status: :revalidated})
-      safe_update_counter(state.table, :stats_hits)
-      new_entry = %{entry | last_checked_at: now}
-      :ets.insert(state.table, {{:page, path}, new_entry})
-      {:reply, {:ok, entry.parsed}, state}
-    end
-  end
-
-  defp perform_revalidation(path, new_mtime, now, state) do
-    telemetry_execute([:cache, :revalidate], %{count: 1}, %{
-      path: path,
-      reason: :mtime_changed
-    })
-
-    safe_update_counter(state.table, :stats_revalidations)
-
-    case state.reader.read_page(state.template_dir, path) do
-      {:ok, content} ->
-        {meta, body} = FrontMatter.parse(content)
-
-        case parse_page(body, meta, state) do
-          {:ok, parsed} ->
-            new_entry = %PageEntry{parsed: parsed, mtime: new_mtime, last_checked_at: now}
-            :ets.insert(state.table, {{:page, path}, new_entry})
-            {:reply, {:ok, parsed}, state}
-
-          {:error, reason} ->
-            {:reply, {:error, reason}, state}
-        end
-
-      _ ->
-        :ets.delete(state.table, {:page, path})
-        {:reply, {:error, :not_found}, state}
     end
   end
 

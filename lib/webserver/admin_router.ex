@@ -7,6 +7,7 @@ defmodule Webserver.AdminRouter do
   import Webserver.ConnHelpers
 
   alias Webserver.Server
+  alias Webserver.Telemetry.Metrics
   alias Webserver.TemplateServer.Cache
 
   plug(:match)
@@ -23,6 +24,10 @@ defmodule Webserver.AdminRouter do
   get "/cache/stats" do
     stats = Cache.stats()
     json(conn, 200, stats)
+  end
+
+  get "/stats" do
+    json(conn, 200, Metrics.snapshot())
   end
 
   post "/cache/refresh" do

@@ -93,7 +93,16 @@ end</code></pre>
   end
 end</code></pre>
 
-        <p>The <code>handle_maybe_stale</code> function implements a simple TTL-based revalidation strategy. It checks if a configurable interval has passed since the last check. If it has, the request is serialized through a GenServer that compares the file's <code>mtime</code> on disk. If the file hasn't changed, we simply update the timestamp in ETS and return the cached HTML. This ensures that even under heavy load, we only hit the filesystem once per interval per page.</p>
+        <p>The <code>handle_maybe_stale</code> function implements a simple TTL-based revalidation strategy. It checks if a configurable interval has passed since the last check. If it has, the cache revalidates the entry based on the file's <code>mtime</code> on disk.</p>
+
+        <h3>Stale-While-Revalidate (SWR)</h3>
+        <p>The first version of this cache did the revalidation synchronously on the request path. That keeps correctness simple, but it also means every "stale" request gets serialized through a single GenServer and can block behind filesystem reads + parsing. Under enough traffic, that becomes tail latency (or timeouts) even though we already have perfectly good HTML sitting in ETS.</p>
+
+        <p>The current approach is <strong>stale-while-revalidate</strong>: when a cached entry is due for a check, the server returns the cached HTML immediately and kicks off a background revalidation that updates ETS if the file changed.</p>
+
+        <p><strong>Benefits:</strong> no request ever blocks on revalidation work, so latency is predictable and the cache stays responsive under load. It also naturally smooths out bursts because revalidation happens at most once per page per interval (deduped).</p>
+
+        <p><strong>Trade-offs:</strong> the HTML can be briefly stale (bounded by the check interval) and background failures don't surface to the user directly. Instead, you monitor revalidation error counters and logs.</p>
 
         <h2>A Custom Templating Language</h2>
         <p>I wanted a component-like experience without a heavy build step. I wrote a small templating system that supports partials and named slots using recursive regex.</p>
@@ -115,6 +124,8 @@ end</code></pre>
 
         <h2>Hosting and Deployment</h2>
         <p>Deployment fully automated with GitHub Actions and Docker. When I push to <code>main</code>, an image is built and pushed to GHCR. On the droplet, <a href="https://containrrr.dev/watchtower/" target="_blank" rel="noopener noreferrer">Watchtower</a> detects the new image and restarts the container within 30 seconds. No manual intervention required.</p>
+
+        <p>After the first deploy I hit an annoying issue: the container would slowly degrade and eventually start returning internal 503s. The root cause turned out to be the Docker <code>HEALTHCHECK</code>. I originally used <code>./bin/webserver eval "IO.puts(:ok)"</code>, which spawns a separate BEAM instance every check. On a tiny droplet that can time out and create unnecessary pressure. The fix was to switch the healthcheck to a simple HTTP probe against <code>/health</code>.</p>
 
         <h2>Why Not Phoenix?</h2>
         <p>I've never actually used <a href="https://www.phoenixframework.org/" target="_blank" rel="noopener noreferrer">Phoenix</a>, but from what I've heard it's one of the best web frameworks out there, not just in Elixir. If I were starting a real project I'd probably reach for it.</p>

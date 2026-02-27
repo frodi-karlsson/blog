@@ -20,6 +20,7 @@ defmodule Webserver.Router do
                         )
 
   plug(Plug.RequestId)
+  plug(Webserver.Telemetry.RequestPlug)
   plug(Plug.Logger)
   plug(Plug.Head)
 

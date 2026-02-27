@@ -9,8 +9,11 @@ defmodule Webserver do
   use Application
 
   alias Mix.Tasks.Assets.Build, as: AssetsBuild
+  alias Webserver.Telemetry.Metrics
 
   def start(_start_type, _start_args) do
+    Metrics.setup()
+
     port = Application.fetch_env!(:webserver, :port)
     template_dir = Application.fetch_env!(:webserver, :template_dir)
     mtime_check_interval = Application.fetch_env!(:webserver, :mtime_check_interval)

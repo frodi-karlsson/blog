@@ -56,7 +56,7 @@ defmodule Webserver.TemplateServer.CacheTest do
     setup do: {:ok, name: start_cache()}
 
     test "should start with all counters at zero", %{name: name} do
-      assert Cache.stats(name) == %{hits: 0, misses: 0, revalidations: 0}
+      assert Cache.stats(name) == %{hits: 0, misses: 0, revalidations: 0, revalidation_errors: 0}
     end
 
     test "should record a miss on first page load", %{name: name} do
@@ -100,7 +100,7 @@ defmodule Webserver.TemplateServer.CacheTest do
       Cache.get_page(name, "index.html")
 
       assert :ok = Cache.force_refresh(name)
-      assert Cache.stats(name) == %{hits: 0, misses: 0, revalidations: 0}
+      assert Cache.stats(name) == %{hits: 0, misses: 0, revalidations: 0, revalidation_errors: 0}
     end
 
     test "should re-fetch pages after force_refresh", %{name: name} do
