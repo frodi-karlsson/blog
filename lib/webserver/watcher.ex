@@ -37,10 +37,15 @@ defmodule Webserver.Watcher do
       String.contains?(path_str, state.assets_static_dir) ->
         handle_assets_static_change(path_str, state.assets_static_dir)
 
+      String.contains?(path_str, "priv/static") and digest_output?(path_str) ->
+        :ok
+
       String.ends_with?(path_str, ".css") ->
+        rebuild_digest()
         broadcast_reload(:css)
 
       String.contains?(path_str, "priv/static") ->
+        rebuild_digest()
         broadcast_reload(:full)
 
       true ->
@@ -48,6 +53,20 @@ defmodule Webserver.Watcher do
     end
 
     {:noreply, state}
+  end
+
+  defp digest_output?(path_str) do
+    Regex.match?(~r/\.[a-f0-9]{64}\./, path_str) or
+      String.ends_with?(path_str, "assets.json") or
+      String.ends_with?(path_str, "assets_meta.json")
+  end
+
+  defp rebuild_digest do
+    Mix.Tasks.Webserver.DigestAssets.run([])
+    Webserver.AssetServer.reload_manifest()
+  rescue
+    e ->
+      Logger.warning(%{event: "digest_rebuild_failed", error: Exception.message(e)})
   end
 
   defp handle_assets_static_change(path_str, assets_static_dir) do

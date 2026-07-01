@@ -61,6 +61,8 @@ defmodule Mix.Tasks.Webserver.NewPost do
         <% blog_post.html %>
           <slot:category></slot:category>
           <slot:date>#{formatted_date}</slot:date>
+          <slot:tags_row></slot:tags_row>
+          <slot:title>#{title}</slot:title>
           <slot:content>
             <p>Start writing here...</p>
           </slot:content>

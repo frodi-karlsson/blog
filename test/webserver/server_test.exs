@@ -39,6 +39,53 @@ defmodule Webserver.ServerTest do
     end
   end
 
+  describe "GET /?q=" do
+    defp build_search_conn(path) do
+      Plug.Test.conn(:get, path)
+      |> Webserver.Router.call(Webserver.Router.init([]))
+    end
+
+    test "with a non-empty query, returns filtered results" do
+      conn = build_search_conn("/?q=post+a")
+      assert conn.status == 200
+      assert conn.resp_body =~ "Results for"
+      assert conn.resp_body =~ "post-a"
+      refute conn.resp_body =~ "post-b"
+    end
+
+    test "with an empty query, falls through to the normal index" do
+      conn = build_search_conn("/?q=")
+      assert conn.status == 200
+      refute conn.resp_body =~ "Results for"
+    end
+
+    test "html-escapes the echoed query" do
+      conn = build_search_conn("/?q=%3Cscript%3E")
+      assert conn.status == 200
+      refute conn.resp_body =~ "<script>"
+      assert conn.resp_body =~ "&lt;script&gt;"
+    end
+
+    test "empty result renders an empty state" do
+      conn = build_search_conn("/?q=zzz-no-such-post")
+      assert conn.status == 200
+      assert conn.resp_body =~ "No posts matching"
+      assert conn.resp_body =~ ~s|href="/tags"|
+    end
+
+    test "truncates very long queries without crashing" do
+      long = String.duplicate("a", 500)
+      conn = build_search_conn("/?q=" <> long)
+      assert conn.status == 200
+    end
+
+    test "query containing {{ ... }} still renders without triggering asset parser" do
+      conn = build_search_conn("/?q=%7B%7B%2B%2Ffoo%7D%7D")
+      assert conn.status == 200
+      refute conn.resp_body =~ "Search unavailable"
+    end
+  end
+
   describe "parser error handling" do
     test "should return error for missing slots" do
       partials = %{

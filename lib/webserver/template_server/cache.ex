@@ -9,6 +9,7 @@ defmodule Webserver.TemplateServer.Cache do
   alias Webserver.FrontMatter
   alias Webserver.Parser
   alias Webserver.Parser.ParseInput
+  alias Webserver.TemplateServer.BlogItemRenderer
   alias Webserver.TemplateServer.ContentGenerator
 
   require Logger
@@ -75,6 +76,48 @@ defmodule Webserver.TemplateServer.Cache do
 
   @spec force_refresh(atom() | pid()) :: :ok | {:error, term()}
   def force_refresh(server \\ __MODULE__), do: GenServer.call(server, :force_refresh)
+
+  @spec list_posts(atom() | pid()) :: [Webserver.TemplateServer.Post.t()]
+  def list_posts(server \\ __MODULE__) do
+    case :ets.lookup(table_for(server), :posts_db) do
+      [{:posts_db, posts}] -> posts
+      [] -> []
+    end
+  end
+
+  @spec posts_by_tag(atom() | pid(), String.t()) :: [Webserver.TemplateServer.Post.t()]
+  def posts_by_tag(server \\ __MODULE__, tag) do
+    needle = String.downcase(tag)
+    Enum.filter(list_posts(server), fn post -> needle in post.tags end)
+  end
+
+  @spec search_posts(atom() | pid(), String.t()) :: [Webserver.TemplateServer.Post.t()]
+  def search_posts(server \\ __MODULE__, query) do
+    q = query |> String.trim() |> String.downcase() |> String.slice(0, 200)
+
+    if q == "" do
+      list_posts(server)
+    else
+      Enum.filter(list_posts(server), fn post ->
+        String.contains?(String.downcase(post.title), q) or
+          String.contains?(String.downcase(post.summary), q)
+      end)
+    end
+  end
+
+  @spec get_partials(atom() | pid()) :: {:ok, map()}
+  def get_partials(server \\ __MODULE__) do
+    GenServer.call(server, :get_partials)
+  end
+
+  @spec all_tags(atom() | pid()) :: [{String.t(), non_neg_integer()}]
+  def all_tags(server \\ __MODULE__) do
+    server
+    |> list_posts()
+    |> Enum.flat_map(& &1.tags)
+    |> Enum.frequencies()
+    |> Enum.sort_by(fn {tag, count} -> {-count, tag} end)
+  end
 
   defp handle_maybe_stale(table, server, path, %PageEntry{} = entry) do
     [{:config, {_template_dir, interval, _reader, _live_reload?}}] = :ets.lookup(table, :config)
@@ -178,6 +221,10 @@ defmodule Webserver.TemplateServer.Cache do
     {:reply, stats(state.table), state}
   end
 
+  def handle_call(:get_partials, _from, state) do
+    {:reply, {:ok, state.partials}, state}
+  end
+
   @impl true
   def handle_call(:force_refresh, _from, state) do
     :ets.match_delete(state.table, {{:page, :_}, :_})
@@ -190,6 +237,10 @@ defmodule Webserver.TemplateServer.Cache do
       {:ok, new_state} -> {:reply, :ok, new_state}
       {:error, reason} -> {:reply, {:error, reason}, state}
     end
+  end
+
+  defp do_revalidate_async(_path, %PageEntry{mtime: :generated}, _checked_at, state) do
+    {:noreply, state}
   end
 
   defp do_revalidate_async(path, %PageEntry{} = entry, checked_at, state) do
@@ -276,10 +327,57 @@ defmodule Webserver.TemplateServer.Cache do
     rendered = ContentGenerator.generate_blog_index(pages_meta, state, state.partials)
     :ets.insert(state.table, {{:partial, blog_key}, rendered})
 
+    posts = ContentGenerator.build_posts_db(pages_meta)
+    :ets.insert(state.table, {:posts_db, posts})
+
+    partials_with_blog = Map.put(state.partials, blog_key, rendered)
+
+    tags_index_html =
+      ContentGenerator.generate_tags_index_page(posts, state, partials_with_blog)
+
+    insert_generated_page(state.table, "tags/index.html", tags_index_html)
+
+    tag_pages = ContentGenerator.generate_tag_pages(posts, state, partials_with_blog)
+    refresh_tag_pages(state.table, tag_pages)
+
     pages = ContentGenerator.generate_page_registry(pages_meta)
     :ets.insert(state.table, {:page_registry, pages})
 
-    %{state | partials: Map.put(state.partials, blog_key, rendered)}
+    %{state | partials: partials_with_blog}
+  end
+
+  defp refresh_tag_pages(table, tag_pages) do
+    new_filenames =
+      tag_pages
+      |> Map.keys()
+      |> Enum.map(&"tags/#{&1}.html")
+      |> MapSet.new()
+
+    previous =
+      case :ets.lookup(table, :generated_tag_pages) do
+        [{:generated_tag_pages, set}] -> set
+        [] -> MapSet.new()
+      end
+
+    Enum.each(MapSet.difference(previous, new_filenames), fn filename ->
+      :ets.delete(table, {:page, filename})
+    end)
+
+    Enum.each(tag_pages, fn {tag, html} ->
+      insert_generated_page(table, "tags/#{tag}.html", html)
+    end)
+
+    :ets.insert(table, {:generated_tag_pages, new_filenames})
+  end
+
+  defp insert_generated_page(table, filename, html) do
+    entry = %PageEntry{
+      parsed: html,
+      mtime: :generated,
+      last_checked_at: System.system_time(:millisecond)
+    }
+
+    :ets.insert(table, {{:page, filename}, entry})
   end
 
   defp parse_page(content, meta, state) do
@@ -287,8 +385,13 @@ defmodule Webserver.TemplateServer.Cache do
       file: content,
       template_dir: state.template_dir,
       partials: state.partials,
-      metadata: meta
+      metadata: enrich_metadata(meta)
     })
+  end
+
+  defp enrich_metadata(meta) do
+    tags = FrontMatter.parse_tags(meta["tags"])
+    Map.put(meta, "tags", BlogItemRenderer.render_tag_chips(tags))
   end
 
   defp mtime_for_file(state, relative_path) do

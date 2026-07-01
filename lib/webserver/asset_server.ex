@@ -29,6 +29,16 @@ defmodule Webserver.AssetServer do
     end
   end
 
+  @doc """
+  Re-reads the on-disk manifest and refreshes the ETS lookup table.
+  Used by the dev watcher after re-running `webserver.digest_assets` on a
+  changed asset, so `{{+ /static/... }}` templates resolve to the new hash.
+  """
+  @spec reload_manifest() :: :ok
+  def reload_manifest do
+    GenServer.cast(__MODULE__, :reload_manifest)
+  end
+
   @impl true
   @spec resolve_meta(String.t()) ::
           {:ok, %{width: pos_integer(), height: pos_integer()}} | {:error, :not_found}
@@ -53,6 +63,19 @@ defmodule Webserver.AssetServer do
     :ets.insert(@table_name, Map.to_list(manifest))
 
     meta = load_meta(state.static_dir)
+    :ets.insert(@meta_table_name, Map.to_list(meta))
+
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_cast(:reload_manifest, state) do
+    manifest = load_manifest(state.static_dir)
+    :ets.delete_all_objects(@table_name)
+    :ets.insert(@table_name, Map.to_list(manifest))
+
+    meta = load_meta(state.static_dir)
+    :ets.delete_all_objects(@meta_table_name)
     :ets.insert(@meta_table_name, Map.to_list(meta))
 
     {:noreply, state}

@@ -4,6 +4,19 @@
     <p class="text-subtle">I build things to learn them. These are the write-ups.</p>
   </header>
 
+  <form action="/" method="get" class="search-form" data-testid="search-form">
+    <input
+      class="input search-form__input"
+      type="search"
+      name="q"
+      placeholder="Search posts"
+      aria-label="Search posts"
+      data-testid="search-input"
+    />
+    <button class="btn btn--primary" type="submit">Search</button>
+    <a href="/tags" data-testid="browse-tags-link">Browse by tag</a>
+  </form>
+
   <div class="grid">
     {{items}}
   </div>

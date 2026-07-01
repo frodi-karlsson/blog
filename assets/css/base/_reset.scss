@@ -33,6 +33,14 @@ a {
   }
 }
 
+code {
+  background: vars.$surface-muted;
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  font-family: vars.$font-mono;
+  font-size: 0.9em;
+}
+
 .text-subtle {
   color: vars.$text-subtle;
 }

@@ -41,3 +41,6 @@ priv/static/
 
 # macOS
 .DS_Store
+
+# Local specs and plans (not shared with the repo)
+docs/nc-superpowers/

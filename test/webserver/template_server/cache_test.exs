@@ -152,4 +152,104 @@ defmodule Webserver.TemplateServer.CacheTest do
       assert [{_, ^pages}] = :ets.lookup(name, :page_registry)
     end
   end
+
+  describe "posts DB queries" do
+    setup do: {:ok, name: start_cache()}
+
+    test "list_posts/1 returns all blog posts, date desc", %{name: name} do
+      posts = Cache.list_posts(name)
+      ids = Enum.map(posts, & &1.id)
+      assert "post-a" in ids
+      assert "post-b" in ids
+      # Post A dated 2026-05-01, Post B dated 2026-04-01
+      assert Enum.find_index(ids, &(&1 == "post-a")) <
+               Enum.find_index(ids, &(&1 == "post-b"))
+    end
+
+    test "posts_by_tag/2 filters case-insensitively", %{name: name} do
+      posts = Cache.posts_by_tag(name, "TypeScript")
+      assert Enum.map(posts, & &1.id) == ["post-a"]
+    end
+
+    test "posts_by_tag/2 returns empty list for unknown tag", %{name: name} do
+      assert Cache.posts_by_tag(name, "nonexistent") == []
+    end
+
+    test "search_posts/2 matches on title", %{name: name} do
+      posts = Cache.search_posts(name, "post a")
+      assert Enum.map(posts, & &1.id) == ["post-a"]
+    end
+
+    test "search_posts/2 matches on summary", %{name: name} do
+      posts = Cache.search_posts(name, "about b")
+      assert Enum.map(posts, & &1.id) == ["post-b"]
+    end
+
+    test "search_posts/2 is case-insensitive", %{name: name} do
+      posts = Cache.search_posts(name, "POST A")
+      assert Enum.map(posts, & &1.id) == ["post-a"]
+    end
+
+    test "search_posts/2 with empty query returns all posts", %{name: name} do
+      all = Cache.list_posts(name)
+      assert Cache.search_posts(name, "") == all
+      assert Cache.search_posts(name, "   ") == all
+    end
+
+    test "all_tags/1 returns tags with counts, sorted", %{name: name} do
+      tags = Cache.all_tags(name)
+      assert {"anabranch", 1} in tags
+      assert {"typescript", 1} in tags
+      assert {"elixir", 1} in tags
+    end
+  end
+
+  describe "tags landing page" do
+    setup do: {:ok, name: start_cache()}
+
+    test "GET /tags returns 200 with the tags-index HTML", %{name: name} do
+      assert {:ok, html} = Cache.get_page(name, "tags/index.html")
+      assert html =~ "Tags"
+      assert html =~ "anabranch"
+      assert html =~ "typescript"
+      assert html =~ "elixir"
+    end
+
+    test "each tag chip links to /tags/<name>", %{name: name} do
+      {:ok, html} = Cache.get_page(name, "tags/index.html")
+      assert html =~ ~s|href="/tags/anabranch"|
+      assert html =~ ~s|href="/tags/typescript"|
+    end
+
+    test "chip label includes count", %{name: name} do
+      {:ok, html} = Cache.get_page(name, "tags/index.html")
+      assert html =~ ~r|anabranch.*\(1\)|
+    end
+  end
+
+  describe "per-tag pages" do
+    setup do: {:ok, name: start_cache()}
+
+    test "GET /tags/anabranch returns 200 with only posts in that tag", %{name: name} do
+      assert {:ok, html} = Cache.get_page(name, "tags/anabranch.html")
+      assert html =~ "anabranch"
+      assert html =~ "post-a"
+      refute html =~ "post-b"
+    end
+
+    test "GET /tags/nonexistent returns not_found", %{name: name} do
+      assert {:error, :not_found} = Cache.get_page(name, "tags/nonexistent.html")
+    end
+
+    test "tag pages are lowercased", %{name: name} do
+      # Post A has 'TypeScript' in tags; parse_tags lowercases it.
+      assert {:ok, _} = Cache.get_page(name, "tags/typescript.html")
+      assert {:error, :not_found} = Cache.get_page(name, "tags/TypeScript.html")
+    end
+
+    test "tag pages have a back link to /tags", %{name: name} do
+      {:ok, html} = Cache.get_page(name, "tags/anabranch.html")
+      assert html =~ ~s|href="/tags"|
+    end
+  end
 end

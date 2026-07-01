@@ -1,5 +1,38 @@
 @use "../base/variables" as vars;
 
+.input {
+  background-color: vars.$input-bg;
+  color: vars.$input-text;
+  padding: vars.$space-2 vars.$space-3;
+  border-radius: vars.$radius-base;
+  border: 1px solid vars.$input-border;
+  font-family: inherit;
+  font-size: 1rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+
+  &:focus {
+    outline: none;
+    border-color: vars.$input-focus-border;
+    box-shadow: 0 0 0 3px rgba(vars.$primary, 0.15);
+  }
+
+  &::placeholder {
+    color: vars.$text-subtle;
+  }
+}
+
+.search-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: vars.$space-3;
+  align-items: center;
+
+  &__input {
+    flex: 1 1 240px;
+    min-width: 0;
+  }
+}
+
 .form-group {
   display: flex;
   flex-direction: column;

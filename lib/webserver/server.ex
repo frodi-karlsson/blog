@@ -9,7 +9,9 @@ defmodule Webserver.Server do
 
   import Plug.Conn
 
+  alias Webserver.TemplateServer.BlogItemRenderer
   alias Webserver.TemplateServer.Cache
+  alias Webserver.TemplateServer.Post
 
   require Logger
 
@@ -24,8 +26,19 @@ defmodule Webserver.Server do
   end
 
   def call(conn, _opts) do
+    conn = Plug.Conn.fetch_query_params(conn)
     path = request_path(conn)
 
+    case {path, search_query(conn)} do
+      {"index.html", query} when is_binary(query) ->
+        handle_search(conn, query)
+
+      _ ->
+        serve_cached(conn, path)
+    end
+  end
+
+  defp serve_cached(conn, path) do
     result = try_get_page(path)
 
     case result do
@@ -75,6 +88,76 @@ defmodule Webserver.Server do
             "An error occurred while processing your request."
           )
         )
+    end
+  end
+
+  defp search_query(conn) do
+    case conn.query_params["q"] do
+      nil ->
+        nil
+
+      raw ->
+        trimmed = raw |> String.trim() |> String.slice(0, 200)
+        if trimmed == "", do: nil, else: trimmed
+    end
+  end
+
+  defp handle_search(conn, query) do
+    posts = Cache.search_posts(query)
+    html = render_search_results(query, posts)
+
+    conn
+    |> put_resp_content_type("text/html")
+    |> send_resp(200, html)
+  end
+
+  defp render_search_results(query, posts) do
+    escaped =
+      query
+      |> Plug.HTML.html_escape()
+      |> String.replace("{", "&#123;")
+
+    {:ok, partials} = Cache.get_partials()
+    template_dir = Application.fetch_env!(:webserver, :template_dir)
+
+    items =
+      case posts do
+        [] ->
+          ~s|<p data-testid="search-empty">No posts matching <code>#{escaped}</code>. Try <a href="/tags">browsing by tag</a>.</p>|
+
+        _ ->
+          Enum.map_join(posts, "\n", fn post ->
+            BlogItemRenderer.render(post.filename, Post.to_meta(post), template_dir, partials)
+          end)
+      end
+
+    banner =
+      ~s|<header class="stack stack--tight" data-testid="search-header"><p class="text-subtle"><a href="/">← Clear</a></p><h1>Results for <code>#{escaped}</code> (#{length(posts)})</h1></header>|
+
+    page_template = """
+    <% layout.html %>
+      <slot:title>Search results</slot:title>
+      <slot:description>Search results for #{escaped}</slot:description>
+      <slot:canonical></slot:canonical>
+      <slot:og_type>website</slot:og_type>
+      <slot:body>
+        <div class="stack stack--loose">
+          #{banner}
+          <div class="grid">#{items}</div>
+        </div>
+      </slot:body>
+    <%/ layout.html %>
+    """
+
+    input = %Webserver.Parser.ParseInput{
+      file: page_template,
+      template_dir: template_dir,
+      partials: partials
+    }
+
+    case Webserver.Parser.parse(input) do
+      {:ok, html} -> html
+      _ -> "<p>Search unavailable.</p>"
     end
   end
 

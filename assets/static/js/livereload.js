@@ -13,6 +13,7 @@
       const links = document.querySelectorAll("link[rel='stylesheet']");
       links.forEach(link => {
         const url = new URL(link.href);
+        url.pathname = url.pathname.replace(/\.[a-f0-9]{64}\./, ".");
         url.searchParams.set("v", Date.now());
         link.href = url.href;
       });

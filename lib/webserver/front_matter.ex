@@ -82,6 +82,30 @@ defmodule Webserver.FrontMatter do
     end
   end
 
+  @doc """
+  Parses a frontmatter tags string into a normalized list.
+
+  Accepts a comma-separated string, trims whitespace, lowercases each tag,
+  drops empties, and deduplicates while preserving first-seen order.
+
+      iex> Webserver.FrontMatter.parse_tags(nil)
+      []
+      iex> Webserver.FrontMatter.parse_tags("")
+      []
+      iex> Webserver.FrontMatter.parse_tags("anabranch, TypeScript, anabranch")
+      ["anabranch", "typescript"]
+  """
+  @spec parse_tags(String.t() | nil) :: [String.t()]
+  def parse_tags(nil), do: []
+
+  def parse_tags(raw) when is_binary(raw) do
+    raw
+    |> String.split(",")
+    |> Enum.map(&(&1 |> String.trim() |> String.downcase()))
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.uniq()
+  end
+
   defp parse_block(block) do
     block
     |> String.split("\n")
