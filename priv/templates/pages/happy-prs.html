@@ -1,0 +1,64 @@
+---
+title: Happy PRs, and the Feedback Loop That Built It
+date: 2026-07-01
+category: Tooling
+summary: Vibe coding a small macOS menubar app to handle the flip side of agentic coding: a reviewer backlog that grows faster than notifications can keep up with.
+canonical: https://blog.frodikarlsson.com/happy-prs
+---
+<% layout.html %>
+  <slot:title>Happy PRs, and the Feedback Loop That Built It</slot:title>
+  <slot:description>Vibe coding a small macOS menubar app to handle the flip side of agentic coding: a reviewer backlog that grows faster than notifications can keep up with.</slot:description>
+  <slot:og_type>article</slot:og_type>
+  <slot:body>
+    <% blog_post.html %>
+      <slot:category>Tooling</slot:category>
+      <slot:date>Jul 1, 2026</slot:date>
+      <slot:title>Happy PRs, and the Feedback Loop That Built It</slot:title>
+      <slot:content>
+        <p>For the last few years, I've prided myself on being a fast pull request reviewer. Lately, that's getting harder.</p>
+
+        <p>Agentic coding is on the rise, PRs are coming in faster, and sometimes even from non-technical contributors. Some big wins, some new problems.</p>
+
+        <p>My old workflow was simple: review whatever was highest priority as soon as the GitHub notification came in. That kept the team moving and kept me fully in touch with the codebase. It doesn't scale the same way anymore. More often than I'd like, I'll realize a week has passed and some PR has been sitting on me the whole time.</p>
+
+        <p>So I'm looking into ways to address that.</p>
+
+        <h2>Happy PRs</h2>
+
+        <p>Today I vibe coded a little widget, <a href="https://github.com/frodi-karlsson/happy-prs" target="_blank" rel="noopener noreferrer">Happy PRs</a>, that lives in the macOS menubar and summarizes the PRs that need my attention. It sorts them into three buckets:</p>
+
+        <ul>
+          <li><strong>Needs your approval</strong>: I'm on the reviewer list and no one has approved the current HEAD yet. These are blocking on me.</li>
+          <li><strong>Wants your approval</strong>: same as above, but someone else has already approved. Nice to have rather than blocking.</li>
+          <li><strong>Mentions you</strong>: I'm <code>@</code>-mentioned in the body, a comment, or a review thread. Additive with the other buckets, because a discussion might need me even when my approval doesn't.</li>
+        </ul>
+
+        <p>It also handles the case where GitHub silently drops your prior approval after new commits land but doesn't re-request review. Those PRs would otherwise vanish from my notifications entirely.</p>
+
+        <figure>
+          <img
+            src="https://raw.githubusercontent.com/frodi-karlsson/happy-prs/main/screenshots/loaded.png"
+            alt="Happy PRs menubar popover showing PRs sorted into approval buckets"
+            width="560"
+            height="463"
+            loading="lazy"
+            decoding="async"
+          />
+          <figcaption>The popover, showing what needs my attention right now.</figcaption>
+        </figure>
+
+        <p>It's not the most impressive piece of software, but it's dev tooling that helps me, and it cost me just a few hours to build. I really appreciate that it's so easy to produce something that just <em>does exactly what you need</em> without having to wrestle with it.</p>
+
+        <p>Swift itself was a nice surprise along the way. The algebraic types and procedural style reminded me a lot of Rust in a good way, with enums that carry associated values, exhaustive pattern matching, and <code>Result</code>-style error handling, but without a borrow checker to argue with. It uses ARC (automatic reference counting) instead, inherited from Objective-C and closer in spirit to C++'s <code>std::shared_ptr</code> than to Rust's opt-in <code>Rc</code>/<code>Arc</code>. Memory just quietly works out, at the cost of some runtime overhead and the occasional retain cycle to keep an eye on.</p>
+
+        <h2>The feedback loop</h2>
+
+        <p>There's something a little magical about this. The same thing that's causing my problem (more code shipping faster because of AI) is also what gave me the tool to address it. I wouldn't have taken the time to build this a year ago. It would have been a weekend project, and it wasn't important enough to spend a weekend on.</p>
+
+        <p>The marginal cost of building a small, personal tool has fallen far enough that the calculation flips. Anything I find myself wanting for two consecutive days is worth a few hours now, and a few hours means it actually gets built instead of sitting on the mental backlog forever.</p>
+
+        <p>Such an exciting time to be a software engineer. Curious what other people are doing to manage PR load in the agentic-coding era.</p>
+      </slot:content>
+    <%/ blog_post.html %>
+  </slot:body>
+<%/ layout.html %>

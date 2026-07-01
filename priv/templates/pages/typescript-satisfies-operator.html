@@ -2,12 +2,12 @@
 title: The satisfies Operator: Drift, Widening, and a Very Niche Trick
 date: 2026-07-01
 category: TypeScript
-summary: A tour of TypeScript's satisfies operator — the obvious use for catching type drift, and the less-obvious combination with as const that keeps enum tuples narrow.
+summary: A tour of TypeScript's satisfies operator: the obvious use for catching type drift, and the less-obvious combination with as const that keeps enum tuples narrow.
 canonical: https://blog.frodikarlsson.com/typescript-satisfies-operator
 ---
 <% layout.html %>
   <slot:title>The satisfies Operator: Drift, Widening, and a Very Niche Trick</slot:title>
-  <slot:description>A tour of TypeScript's satisfies operator — the obvious use for catching type drift, and the less-obvious combination with as const that keeps enum tuples narrow.</slot:description>
+  <slot:description>A tour of TypeScript's satisfies operator: the obvious use for catching type drift, and the less-obvious combination with as const that keeps enum tuples narrow.</slot:description>
   <slot:og_type>article</slot:og_type>
   <slot:body>
     <% blog_post.html %>
@@ -15,7 +15,7 @@ canonical: https://blog.frodikarlsson.com/typescript-satisfies-operator
       <slot:date>Jul 1, 2026</slot:date>
       <slot:title>The satisfies Operator: Drift, Widening, and a Very Niche Trick</slot:title>
       <slot:content>
-        <p><code>satisfies</code> is an operator that validates that a given value <code>x</code> is assignable to a given type <code>A</code>, <em>without</em> casting <code>x</code> to <code>A</code>. That distinction — validating rather than casting — is what makes it interesting, and it's why it does more than one useful thing.</p>
+        <p><code>satisfies</code> is an operator that validates that a given value <code>x</code> is assignable to a given type <code>A</code>, <em>without</em> casting <code>x</code> to <code>A</code>. That distinction (validating rather than casting) is what makes it interesting, and it's why it does more than one useful thing.</p>
 
         <h2>The obvious use: catching drift</h2>
         <p>Say you have a shared type used by both the backend and the frontend:</p>
@@ -25,7 +25,7 @@ type SomeInput = { data: number }</code></pre>
         <p>The backend uses it directly:</p>
         <pre><code class="language-typescript">router.get('/api', (input: SomeInput) =&gt; { ... })</code></pre>
 
-        <p>The frontend has a general-purpose fetch that takes anything (pretend for a moment that making <code>fetch</code> generic over <code>INPUT</code> isn't an option — otherwise this example is moot):</p>
+        <p>The frontend has a general-purpose fetch that takes anything. Pretend for a moment that making <code>fetch</code> generic over <code>INPUT</code> isn't an option, otherwise this example is moot:</p>
         <pre><code class="language-typescript">function fetch(x: AnyObject): unknown { ... }
 
 fetch({ data: 123 })</code></pre>
@@ -33,12 +33,12 @@ fetch({ data: 123 })</code></pre>
         <p>Everything compiles. Everything works. Now the shared type changes:</p>
         <pre><code class="language-typescript">type SomeInput = { data: string }</code></pre>
 
-        <p>The frontend call site is still valid TypeScript — <code>fetch</code> accepts <code>AnyObject</code>, and <code>{ data: 123 }</code> is a perfectly fine object. The drift slides past the compiler and lands in production.</p>
+        <p>The frontend call site is still valid TypeScript: <code>fetch</code> accepts <code>AnyObject</code>, and <code>{ data: 123 }</code> is a perfectly fine object. The drift slides past the compiler and lands in production.</p>
 
         <p>That's exactly what <code>satisfies</code> is for:</p>
         <pre><code class="language-typescript">fetch({ data: 123 } satisfies SomeInput)</code></pre>
 
-        <p>Now the compiler validates the literal against <code>SomeInput</code> at the call site. When the shared type changes to <code>{ data: string }</code>, this line stops compiling. You get the error where the mismatch actually is, and the type of the argument passed to <code>fetch</code> is still the literal you wrote — no cast, no widening.</p>
+        <p>Now the compiler validates the literal against <code>SomeInput</code> at the call site. When the shared type changes to <code>{ data: string }</code>, this line stops compiling. You get the error where the mismatch actually is, and the type of the argument passed to <code>fetch</code> is still the literal you wrote, with no cast and no widening.</p>
 
         <h2>The less-obvious use: <code>as const satisfies</code></h2>
         <p>There's another shape of this operator that I find myself reaching for occasionally. It's niche, but when it fits, nothing else quite does the job.</p>
@@ -65,7 +65,7 @@ process(values) // still an error</code></pre>
         <pre><code class="language-typescript">const values = [SomeEnumType.field, SomeEnumType.node] as const satisfies SomeEnumType[]
 process(values) // works</code></pre>
 
-        <p>What's happening here is that TypeScript recontextualizes the same value into a different type via inference. The <code>as const</code> narrows the literals so they don't widen to <code>SomeEnumType</code>, and the <code>satisfies SomeEnumType[]</code> gives the compiler enough context to drop the <code>readonly</code> when inferring the final type. Same value, different type — narrow enough for the tuple, mutable enough for the parameter.</p>
+        <p>What's happening here is that TypeScript recontextualizes the same value into a different type via inference. The <code>as const</code> narrows the literals so they don't widen to <code>SomeEnumType</code>, and the <code>satisfies SomeEnumType[]</code> gives the compiler enough context to drop the <code>readonly</code> when inferring the final type. Same value, different type. Narrow enough for the tuple, mutable enough for the parameter.</p>
 
         <p>It's a genuinely strange corner of the language, and I don't have a clean mental model for why it works, only that it does.</p>
 
