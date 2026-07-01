@@ -29,7 +29,7 @@ resource "digitalocean_droplet" "blog" {
   image      = "ubuntu-24-04-x64"
   name       = "webserver-blog"
   region     = var.do_region
-  size       = "s-1vcpu-512mb-10gb"
+  size       = "s-1vcpu-1gb"
   ssh_keys   = [digitalocean_ssh_key.default.id]
   monitoring = true
 
@@ -53,22 +53,52 @@ resource "digitalocean_droplet" "blog" {
     mkdir -p /app
     cat <<EOC > /app/docker-compose.yml
     services:
-      app:
-        image: ghcr.io/frodi-karlsson/blog:${var.image_tag}
+      proxy:
+        image: traefik:v3.1
         restart: always
         ports:
-          - "80:4040"
-        environment:
-          - PORT=4040
-          - ADMIN_USERNAME=${var.admin_username}
-          - ADMIN_PASSWORD=${var.admin_password}
+          - "80:80"
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock:ro
+        command:
+          - --providers.docker=true
+          - --providers.docker.exposedbydefault=false
+          - --entrypoints.web.address=:80
         logging:
           driver: "json-file"
           options:
             max-size: "10m"
             max-file: "3"
+
+      app:
+        image: ghcr.io/frodi-karlsson/blog:${var.image_tag}
+        restart: always
+        expose:
+          - "4040"
+        environment:
+          - PORT=4040
+          - ADMIN_USERNAME=${var.admin_username}
+          - ADMIN_PASSWORD=${var.admin_password}
+        stop_grace_period: 20s
+        deploy:
+          replicas: 2
+        healthcheck:
+          test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:4040/health"]
+          interval: 10s
+          timeout: 3s
+          retries: 3
+          start_period: 30s
         labels:
           - "com.centurylinklabs.watchtower.scope=blog"
+          - "traefik.enable=true"
+          - "traefik.http.routers.blog.entrypoints=web"
+          - "traefik.http.routers.blog.rule=PathPrefix(\`/\`)"
+          - "traefik.http.services.blog.loadbalancer.server.port=4040"
+        logging:
+          driver: "json-file"
+          options:
+            max-size: "10m"
+            max-file: "3"
 
       watchtower:
         image: containrrr/watchtower:latest
@@ -79,6 +109,7 @@ resource "digitalocean_droplet" "blog" {
           - WATCHTOWER_POLL_INTERVAL=30
           - WATCHTOWER_CLEANUP=true
           - WATCHTOWER_SCOPE=blog
+          - WATCHTOWER_ROLLING_RESTART=true
         labels:
           - "com.centurylinklabs.watchtower.scope=blog"
 
