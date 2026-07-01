@@ -1,0 +1,95 @@
+---
+title: The satisfies Operator: Drift, Widening, and a Very Niche Trick
+date: 2026-07-01
+category: TypeScript
+summary: A tour of TypeScript's satisfies operator — the obvious use for catching type drift, and the less-obvious combination with as const that keeps enum tuples narrow.
+canonical: https://blog.frodikarlsson.com/typescript-satisfies-operator
+---
+<% layout.html %>
+  <slot:title>The satisfies Operator: Drift, Widening, and a Very Niche Trick</slot:title>
+  <slot:description>A tour of TypeScript's satisfies operator — the obvious use for catching type drift, and the less-obvious combination with as const that keeps enum tuples narrow.</slot:description>
+  <slot:og_type>article</slot:og_type>
+  <slot:body>
+    <% blog_post.html %>
+      <slot:category>TypeScript</slot:category>
+      <slot:date>Jul 1, 2026</slot:date>
+      <slot:title>The satisfies Operator: Drift, Widening, and a Very Niche Trick</slot:title>
+      <slot:content>
+        <p><code>satisfies</code> is an operator that validates that a given value <code>x</code> is assignable to a given type <code>A</code>, <em>without</em> casting <code>x</code> to <code>A</code>. That distinction — validating rather than casting — is what makes it interesting, and it's why it does more than one useful thing.</p>
+
+        <h2>The obvious use: catching drift</h2>
+        <p>Say you have a shared type used by both the backend and the frontend:</p>
+        <pre><code class="language-typescript">// shared
+type SomeInput = { data: number }</code></pre>
+
+        <p>The backend uses it directly:</p>
+        <pre><code class="language-typescript">router.get('/api', (input: SomeInput) =&gt; { ... })</code></pre>
+
+        <p>The frontend has a general-purpose fetch that takes anything (pretend for a moment that making <code>fetch</code> generic over <code>INPUT</code> isn't an option — otherwise this example is moot):</p>
+        <pre><code class="language-typescript">function fetch(x: AnyObject): unknown { ... }
+
+fetch({ data: 123 })</code></pre>
+
+        <p>Everything compiles. Everything works. Now the shared type changes:</p>
+        <pre><code class="language-typescript">type SomeInput = { data: string }</code></pre>
+
+        <p>The frontend call site is still valid TypeScript — <code>fetch</code> accepts <code>AnyObject</code>, and <code>{ data: 123 }</code> is a perfectly fine object. The drift slides past the compiler and lands in production.</p>
+
+        <p>That's exactly what <code>satisfies</code> is for:</p>
+        <pre><code class="language-typescript">fetch({ data: 123 } satisfies SomeInput)</code></pre>
+
+        <p>Now the compiler validates the literal against <code>SomeInput</code> at the call site. When the shared type changes to <code>{ data: string }</code>, this line stops compiling. You get the error where the mismatch actually is, and the type of the argument passed to <code>fetch</code> is still the literal you wrote — no cast, no widening.</p>
+
+        <h2>The less-obvious use: <code>as const satisfies</code></h2>
+        <p>There's another shape of this operator that I find myself reaching for occasionally. It's niche, but when it fits, nothing else quite does the job.</p>
+
+        <p>Here's the setup:</p>
+        <pre><code class="language-typescript">enum SomeEnumType {
+  field = 0,
+  node = 1,
+  crap = 2,
+}
+
+function process(validEnumMember: [SomeEnumType.field, SomeEnumType.node]): void { ... }
+
+const values = [SomeEnumType.field, SomeEnumType.node]
+process(values) // error</code></pre>
+
+        <p>The call fails because <code>values</code> is inferred as <code>SomeEnumType[]</code>. TypeScript widens the array literal from the specific pair to "any array of enum members." Reasonable in general, wrong for this call.</p>
+
+        <p>The natural next attempt is <code>as const</code>:</p>
+        <pre><code class="language-typescript">const values = [SomeEnumType.field, SomeEnumType.node] as const
+process(values) // still an error</code></pre>
+
+        <p>Now the type is <code>readonly [SomeEnumType.field, SomeEnumType.node]</code>, and the parameter expects a mutable tuple. So we've swapped one error for another. The solution is to combine the two:</p>
+        <pre><code class="language-typescript">const values = [SomeEnumType.field, SomeEnumType.node] as const satisfies SomeEnumType[]
+process(values) // works</code></pre>
+
+        <p>What's happening here is that TypeScript recontextualizes the same value into a different type via inference. The <code>as const</code> narrows the literals so they don't widen to <code>SomeEnumType</code>, and the <code>satisfies SomeEnumType[]</code> gives the compiler enough context to drop the <code>readonly</code> when inferring the final type. Same value, different type — narrow enough for the tuple, mutable enough for the parameter.</p>
+
+        <p>It's a genuinely strange corner of the language, and I don't have a clean mental model for why it works, only that it does.</p>
+
+        <h2>Even weirder: <code>satisfies</code> alone prevents widening</h2>
+        <p>In most real-world versions of the example above, you can drop the <code>as const</code> entirely. If <code>process</code> were slightly less inane and took a union array instead of a tuple:</p>
+        <pre><code class="language-typescript">function process(validEnumMember: (SomeEnumType.field | SomeEnumType.node)[]): void { ... }</code></pre>
+
+        <p>Then this just works:</p>
+        <pre><code class="language-typescript">const values = [SomeEnumType.field, SomeEnumType.node] satisfies SomeEnumType[]
+process(values)</code></pre>
+
+        <p>For some reason, the presence of <code>satisfies SomeEnumType[]</code> stops TypeScript from widening the array literal to <code>SomeEnumType[]</code>. The inferred type of <code>values</code> ends up as the narrower <code>(SomeEnumType.field | SomeEnumType.node)[]</code>, which is what <code>process</code> wants.</p>
+
+        <p>You would think that asking the compiler to check assignability against <code>SomeEnumType[]</code> would encourage it to widen, not the opposite. But <code>satisfies</code> preserves the literal type of the expression while validating the constraint, and here that preservation is exactly what saves the call site.</p>
+
+        <h2>Wrapping up</h2>
+        <p>Two things worth remembering:</p>
+        <ol>
+          <li><code>satisfies</code> is the right tool for catching drift between a shared type and a permissive call site.</li>
+          <li>Combined with <code>as const</code>, or sometimes used alone, it also nudges TypeScript's inference away from widening in cases where you want the narrow type preserved.</li>
+        </ol>
+
+        <p>Crazy language. But it's family, and you love family for their idiosyncrasies.</p>
+      </slot:content>
+    <%/ blog_post.html %>
+  </slot:body>
+<%/ layout.html %>
