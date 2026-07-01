@@ -54,12 +54,14 @@ resource "digitalocean_droplet" "blog" {
     cat <<EOC > /app/docker-compose.yml
     services:
       proxy:
-        image: traefik:v3.1
+        image: traefik:v3.7.6
         restart: always
         ports:
           - "80:80"
         volumes:
           - /var/run/docker.sock:/var/run/docker.sock:ro
+        environment:
+          - DOCKER_API_VERSION=1.44
         command:
           - --providers.docker=true
           - --providers.docker.exposedbydefault=false
@@ -101,11 +103,12 @@ resource "digitalocean_droplet" "blog" {
             max-file: "3"
 
       watchtower:
-        image: containrrr/watchtower:latest
+        image: containrrr/watchtower:1.7.1
         restart: always
         volumes:
           - /var/run/docker.sock:/var/run/docker.sock
         environment:
+          - DOCKER_API_VERSION=1.44
           - WATCHTOWER_POLL_INTERVAL=30
           - WATCHTOWER_CLEANUP=true
           - WATCHTOWER_SCOPE=blog

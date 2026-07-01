@@ -21,9 +21,9 @@ defmodule Webserver do
     live_reload? = Application.get_env(:webserver, :live_reload, false)
 
     children = [
+      Webserver.AssetServer,
       {Webserver.TemplateServer.Cache,
        {template_dir, mtime_check_interval, reader, live_reload?}},
-      Webserver.AssetServer,
       {Bandit, plug: Webserver.Router, scheme: :http, port: port}
     ]
 
