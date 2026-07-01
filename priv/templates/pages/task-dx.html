@@ -26,13 +26,21 @@ canonical: https://blog.frodikarlsson.com/task-chaining-and-dx
 const id = "user-123";
 const client = createClient(...);
 
-const result = await Task.chain([
+const tasks = [
   () =&gt; db.query&lt;User&gt;(...),
-  (user) =&gt; client.post&lt;ProcessResult&gt;(...)
-    .retry({ attempts: 3, delay: (a) =&gt; 100 * 2 ** a })
+  user =&gt; client.post&lt;ProcessResult&gt;(...)
+    .retry({ attempts: 3, delay: a =&gt; 100 * 2 ** a })
     .timeout(5000),
-  (res) =&gt; db.execute(...),
-]).result();
+  res =&gt; db.execute(...),
+] as const satisfies [
+  () =&gt; Task&lt;User, unknown&gt;,
+  (prev: User) =&gt; Task&lt;ProcessResult, unknown&gt;,
+  (prev: ProcessResult) =&gt; Task&lt;void, unknown&gt;,
+];
+
+const chained = Task.chain(tasks);
+
+const result = await chained.result();
 
 result.type === "success"
   ? console.log("Success:", result.value)
