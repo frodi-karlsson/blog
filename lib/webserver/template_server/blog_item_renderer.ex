@@ -47,6 +47,7 @@ defmodule Webserver.TemplateServer.BlogItemRenderer do
   def render_tag_chips(tags) when is_list(tags) do
     Enum.map_join(tags, "", fn tag ->
       escaped = Plug.HTML.html_escape(tag)
+
       ~s|<a class="badge badge--tag" href="/tags/#{escaped}" data-testid="tag-chip">#{escaped}</a>|
     end)
   end

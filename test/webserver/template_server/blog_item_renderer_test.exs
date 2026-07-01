@@ -4,15 +4,14 @@ defmodule Webserver.TemplateServer.BlogItemRendererTest do
   alias Webserver.TemplateServer.BlogItemRenderer
 
   @partials %{
-    "partials/blog_index_item.html" =>
-      ~S"""
-      <article>
-        <span class="tags">{{tags}}</span>
-        <time>{{date}}</time>
-        <a href="{{url}}">{{title}}</a>
-        <p>{{summary}}</p>
-      </article>
-      """
+    "partials/blog_index_item.html" => ~S"""
+    <article>
+      <span class="tags">{{tags}}</span>
+      <time>{{date}}</time>
+      <a href="{{url}}">{{title}}</a>
+      <p>{{summary}}</p>
+    </article>
+    """
   }
 
   test "renders a blog item from meta" do

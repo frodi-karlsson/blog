@@ -129,12 +129,32 @@ defmodule Webserver.FrontMatterTest do
       %{name: "empty string returns empty", input: "", expected: []},
       %{name: "whitespace-only returns empty", input: "  ", expected: []},
       %{name: "single tag", input: "anabranch", expected: ["anabranch"]},
-      %{name: "two comma-separated", input: "anabranch, typescript", expected: ["anabranch", "typescript"]},
-      %{name: "extra whitespace trimmed", input: "  anabranch  ,   typescript  ", expected: ["anabranch", "typescript"]},
-      %{name: "mixed casing lowercased", input: "TypeScript, ANABRANCH", expected: ["typescript", "anabranch"]},
-      %{name: "duplicates deduped, first-seen order preserved", input: "anabranch, typescript, Anabranch", expected: ["anabranch", "typescript"]},
+      %{
+        name: "two comma-separated",
+        input: "anabranch, typescript",
+        expected: ["anabranch", "typescript"]
+      },
+      %{
+        name: "extra whitespace trimmed",
+        input: "  anabranch  ,   typescript  ",
+        expected: ["anabranch", "typescript"]
+      },
+      %{
+        name: "mixed casing lowercased",
+        input: "TypeScript, ANABRANCH",
+        expected: ["typescript", "anabranch"]
+      },
+      %{
+        name: "duplicates deduped, first-seen order preserved",
+        input: "anabranch, typescript, Anabranch",
+        expected: ["anabranch", "typescript"]
+      },
       %{name: "trailing comma dropped", input: "anabranch,", expected: ["anabranch"]},
-      %{name: "empty segments dropped", input: "anabranch,,typescript", expected: ["anabranch", "typescript"]}
+      %{
+        name: "empty segments dropped",
+        input: "anabranch,,typescript",
+        expected: ["anabranch", "typescript"]
+      }
     ]
 
     for tc <- @tag_cases do

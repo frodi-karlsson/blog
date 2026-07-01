@@ -29,14 +29,13 @@ defmodule Webserver.TemplateServer.TemplateReader.Sandbox do
        """,
        "partials/header_assets.html" => "<header-assets/>",
        "partials/footer_assets.html" => "<footer-assets/>",
-       "partials/blog_index_item.html" =>
-         ~S"""
-         <article data-testid="blog-index-item">
-           <p class="text-subtle">{{tags}} · {{date}}</p>
-           <h2><a href="{{url}}">{{title}}</a></h2>
-           <p>{{summary}}</p>
-         </article>
-         """,
+       "partials/blog_index_item.html" => ~S"""
+       <article data-testid="blog-index-item">
+         <p class="text-subtle">{{tags}} · {{date}}</p>
+         <h2><a href="{{url}}">{{title}}</a></h2>
+         <p>{{summary}}</p>
+       </article>
+       """,
        "partials/tags_index.html" => ~S"""
        <div class="stack stack--loose">
          <header data-testid="tags-index-header">

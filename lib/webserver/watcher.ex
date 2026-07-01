@@ -5,6 +5,8 @@ defmodule Webserver.Watcher do
   use GenServer
   require Logger
 
+  alias Mix.Tasks.Webserver.DigestAssets
+  alias Webserver.AssetServer
   alias Webserver.LiveReload.PubSub
   alias Webserver.TemplateServer.Cache
 
@@ -62,8 +64,8 @@ defmodule Webserver.Watcher do
   end
 
   defp rebuild_digest do
-    Mix.Tasks.Webserver.DigestAssets.run([])
-    Webserver.AssetServer.reload_manifest()
+    DigestAssets.run([])
+    AssetServer.reload_manifest()
   rescue
     e ->
       Logger.warning(%{event: "digest_rebuild_failed", error: Exception.message(e)})

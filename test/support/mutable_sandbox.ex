@@ -10,35 +10,31 @@ defmodule Webserver.TemplateServer.TemplateReader.MutableSandbox do
   use Agent
 
   @default_partials %{
-    "partials/layout.html" =>
-      ~S"""
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta name="description" content="{{description}}">
-        <link rel="canonical" href="{{canonical}}">
-        <meta property="og:type" content="{{og_type}}">
-        <title>{{title}}</title>
-      </head>
-      <body>{{body}}</body>
-      </html>
-      """,
-    "partials/blog_index_item.html" =>
-      ~S"""
-      <article>
-        <p>{{tags}} - {{date}}</p>
-        <h2><a href="{{url}}">{{title}}</a></h2>
-        <p>{{summary}}</p>
-      </article>
-      """,
-    "partials/tags_index.html" =>
-      ~S"""
-      <div>{{chips}}</div>
-      """,
-    "partials/tag_page.html" =>
-      ~S"""
-      <div><h1>{{tag}}</h1>{{items}}</div>
-      """
+    "partials/layout.html" => ~S"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta name="description" content="{{description}}">
+      <link rel="canonical" href="{{canonical}}">
+      <meta property="og:type" content="{{og_type}}">
+      <title>{{title}}</title>
+    </head>
+    <body>{{body}}</body>
+    </html>
+    """,
+    "partials/blog_index_item.html" => ~S"""
+    <article>
+      <p>{{tags}} - {{date}}</p>
+      <h2><a href="{{url}}">{{title}}</a></h2>
+      <p>{{summary}}</p>
+    </article>
+    """,
+    "partials/tags_index.html" => ~S"""
+    <div>{{chips}}</div>
+    """,
+    "partials/tag_page.html" => ~S"""
+    <div><h1>{{tag}}</h1>{{items}}</div>
+    """
   }
 
   def start_link(pages) do

@@ -31,7 +31,12 @@ defmodule Webserver.TemplateServer.ContentGeneratorTest do
     test "parses tags into lowercased list" do
       pages_meta = [
         {"a.html",
-         %{"date" => "2026-01-01", "summary" => "s", "title" => "A", "tags" => "Anabranch, TypeScript"}}
+         %{
+           "date" => "2026-01-01",
+           "summary" => "s",
+           "title" => "A",
+           "tags" => "Anabranch, TypeScript"
+         }}
       ]
 
       [post] = ContentGenerator.build_posts_db(pages_meta)
