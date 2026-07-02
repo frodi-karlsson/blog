@@ -17,7 +17,7 @@ defmodule Webserver.TemplateServer.BlogItemRenderer do
 
     template = """
     <% blog_index_item.html %>
-    <slot:tags>#{render_tag_chips(tags)}</slot:tags>
+    <slot:tags>#{render_tag_chips(tags, partials)}</slot:tags>
     <slot:date>#{escape(date)}</slot:date>
     <slot:url>#{escape(url)}</slot:url>
     <slot:title>#{escape(meta["title"])}</slot:title>
@@ -41,14 +41,19 @@ defmodule Webserver.TemplateServer.BlogItemRenderer do
   Renders a list of tag names as `<a>` chips linking to `/tags/<name>`.
   Returns an empty string for an empty list.
   """
-  @spec render_tag_chips([String.t()]) :: String.t()
-  def render_tag_chips([]), do: ""
+  @tag_chip_key "partials/tag_chip.html"
+  @tag_chip_fallback " · <a class=\"post-tag\" href=\"/tags/{{tag}}\" data-testid=\"tag-chip\">{{tag}}</a>"
 
-  def render_tag_chips(tags) when is_list(tags) do
+  @spec render_tag_chips([String.t()], map()) :: String.t()
+  def render_tag_chips([], _partials), do: ""
+
+  def render_tag_chips(tags, partials) when is_list(tags) do
+    template = Map.get(partials, @tag_chip_key, @tag_chip_fallback)
+
     Enum.map_join(tags, "", fn tag ->
       escaped = Plug.HTML.html_escape(tag)
-
-      ~s| · <a class="post-tag" href="/tags/#{escaped}" data-testid="tag-chip">#{escaped}</a>|
+      template
+      |> String.replace("{{tag}}", escaped)
     end)
   end
 

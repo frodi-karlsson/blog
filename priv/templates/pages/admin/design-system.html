@@ -59,41 +59,25 @@ noindex: true
         </div>
       </section>
 
-      <!-- Writing (Blog Index) -->
+      <!-- Article List Item -->
       <section class="card">
-        <div class="card-header"><h2>Writing (Blog Index)</h2></div>
+        <div class="card-header"><h2>Article List Item</h2></div>
         <div class="card-body">
-          <div class="writing">
-            <header class="writing__intro">
-              <div class="writing__intro-top">
-                <h1>Writing</h1>
-                <a class="writing__nav-link" href="#">Browse by tag →</a>
-              </div>
-              <p class="text-subtle">I build things to learn them. These are the write-ups.</p>
-            </header>
-            <div class="writing__list">
-              <article class="writing-entry">
-                <div class="writing-entry__meta">
-                  <time>2026-07-01</time>
-                  <a class="post-tag" href="#">elixir</a>
-                  <a class="post-tag" href="#">anabranch</a>
-                </div>
-                <h2 class="writing-entry__title">
-                  <a href="#">Building a streaming concurrency library in Elixir</a>
-                </h2>
-                <p class="writing-entry__summary">A deep dive into designing channels, sources, and tasks with backpressure-aware semantics.</p>
-              </article>
-              <article class="writing-entry">
-                <div class="writing-entry__meta">
-                  <time>2026-06-15</time>
-                  <a class="post-tag" href="#">typescript</a>
-                </div>
-                <h2 class="writing-entry__title">
-                  <a href="#">The satisfies operator in practice</a>
-                </h2>
-                <p class="writing-entry__summary">How satisfies gives you both precise inference and broad compatibility.</p>
-              </article>
-            </div>
+          <div class="writing__list">
+            <% blog_index_item.html %>
+            <slot:tags> · <a class="post-tag" href="#">elixir</a> · <a class="post-tag" href="#">anabranch</a></slot:tags>
+            <slot:date>Jul 1, 2026</slot:date>
+            <slot:url>#</slot:url>
+            <slot:title>Building a streaming concurrency library in Elixir</slot:title>
+            <slot:summary>A deep dive into designing channels, sources, and tasks with backpressure-aware semantics.</slot:summary>
+            <%/ blog_index_item.html %>
+            <% blog_index_item.html %>
+            <slot:tags> · <a class="post-tag" href="#">typescript</a></slot:tags>
+            <slot:date>Jun 15, 2026</slot:date>
+            <slot:url>#</slot:url>
+            <slot:title>The satisfies operator in practice</slot:title>
+            <slot:summary>How satisfies gives you both precise inference and broad compatibility.</slot:summary>
+            <%/ blog_index_item.html %>
           </div>
         </div>
       </section>
@@ -102,44 +86,28 @@ noindex: true
       <section class="card">
         <div class="card-header"><h2>Search Form</h2></div>
         <div class="card-body">
-          <form action="/" method="get" class="search-form">
-            <input class="search-form__input" type="search" placeholder="Search posts…" aria-label="Search posts" />
-            <button class="search-form__submit" type="submit">Search</button>
-          </form>
+          <% search_form.html %/>
         </div>
       </section>
 
-      <!-- Prose (Blog Content) -->
+      <!-- Prose -->
       <section class="card">
-        <div class="card-header"><h2>Prose (Blog Style)</h2></div>
+        <div class="card-header"><h2>Prose</h2></div>
         <div class="card-body">
-          <article class="prose">
-            <header class="stack stack--tight">
-              <p class="text-subtle"><a href="#">← Back to Blog</a></p>
-              <div class="post-header__meta">
-                <time>2026-07-01</time>
-                <a class="post-tag" href="#">elixir</a>
-              </div>
-              <h1>Article Title</h1>
-            </header>
-            <div class="post-content">
-              <p>The <code>.prose</code> class is designed for long-form content. It manages vertical rhythm, line length, and styling for standard HTML elements like lists and quotes.</p>
-              <ul>
-                <li>First item in a list</li>
-                <li>Second item with some <strong>bold text</strong></li>
-              </ul>
-              <blockquote>
-                "This is a blockquote. It's used to highlight important excerpts or citations within a blog post."
-              </blockquote>
-              <pre><code>def hello do
+          <div class="prose">
+            <h3>Heading Inside Prose</h3>
+            <p>The <code>.prose</code> class is designed for long-form content. It manages vertical rhythm, line length, and styling for standard HTML elements like lists and quotes.</p>
+            <ul>
+              <li>First item in a list</li>
+              <li>Second item with some <strong>bold text</strong></li>
+            </ul>
+            <blockquote>
+              "This is a blockquote. It's used to highlight important excerpts or citations within a blog post."
+            </blockquote>
+            <pre><code>def hello do
   IO.puts "Hello World"
 end</code></pre>
-            </div>
-            <footer class="prose-footer stack stack--tight">
-              <p class="text-subtle">Thanks for reading!</p>
-              <a href="#">← Back to Blog</a>
-            </footer>
-          </article>
+          </div>
         </div>
       </section>
 
@@ -148,11 +116,11 @@ end</code></pre>
         <div class="card-header"><h2>Tag Chips</h2></div>
         <div class="card-body">
           <div class="cluster">
-            <a class="post-tag" href="#">elixir</a>
-            <a class="post-tag" href="#">typescript</a>
-            <a class="post-tag" href="#">anabranch</a>
-            <a class="post-tag" href="#">kafkajs</a>
-            <a class="post-tag" href="#">devops</a>
+            <% tag_chip.html %><slot:tag>elixir</slot:tag><%/ tag_chip.html %>
+            <% tag_chip.html %><slot:tag>typescript</slot:tag><%/ tag_chip.html %>
+            <% tag_chip.html %><slot:tag>anabranch</slot:tag><%/ tag_chip.html %>
+            <% tag_chip.html %><slot:tag>kafkajs</slot:tag><%/ tag_chip.html %>
+            <% tag_chip.html %><slot:tag>devops</slot:tag><%/ tag_chip.html %>
           </div>
         </div>
       </section>

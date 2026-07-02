@@ -385,13 +385,13 @@ defmodule Webserver.TemplateServer.Cache do
       file: content,
       template_dir: state.template_dir,
       partials: state.partials,
-      metadata: enrich_metadata(meta)
+      metadata: enrich_metadata(meta, state.partials)
     })
   end
 
-  defp enrich_metadata(meta) do
+  defp enrich_metadata(meta, partials) do
     tags = FrontMatter.parse_tags(meta["tags"])
-    Map.put(meta, "tags", BlogItemRenderer.render_tag_chips(tags))
+    Map.put(meta, "tags", BlogItemRenderer.render_tag_chips(tags, partials))
   end
 
   defp mtime_for_file(state, relative_path) do

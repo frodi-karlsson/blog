@@ -11,6 +11,9 @@ defmodule Webserver.TemplateServer.BlogItemRendererTest do
       <a href="{{url}}">{{title}}</a>
       <p>{{summary}}</p>
     </article>
+    """,
+    "partials/tag_chip.html" => ~S"""
+     · <a class="post-tag" href="/tags/{{tag}}" data-testid="tag-chip">{{tag}}</a>
     """
   }
 
