@@ -59,9 +59,156 @@ noindex: true
         </div>
       </section>
 
+      <!-- Writing (Blog Index) -->
+      <section class="card">
+        <div class="card-header"><h2>Writing (Blog Index)</h2></div>
+        <div class="card-body">
+          <div class="writing">
+            <header class="writing__intro">
+              <div class="writing__intro-top">
+                <h1>Writing</h1>
+                <a class="writing__nav-link" href="#">Browse by tag →</a>
+              </div>
+              <p class="text-subtle">I build things to learn them. These are the write-ups.</p>
+            </header>
+            <div class="writing__list">
+              <article class="writing-entry">
+                <div class="writing-entry__meta">
+                  <time>2026-07-01</time>
+                  <a class="post-tag" href="#">elixir</a>
+                  <a class="post-tag" href="#">anabranch</a>
+                </div>
+                <h2 class="writing-entry__title">
+                  <a href="#">Building a streaming concurrency library in Elixir</a>
+                </h2>
+                <p class="writing-entry__summary">A deep dive into designing channels, sources, and tasks with backpressure-aware semantics.</p>
+              </article>
+              <article class="writing-entry">
+                <div class="writing-entry__meta">
+                  <time>2026-06-15</time>
+                  <a class="post-tag" href="#">typescript</a>
+                </div>
+                <h2 class="writing-entry__title">
+                  <a href="#">The satisfies operator in practice</a>
+                </h2>
+                <p class="writing-entry__summary">How satisfies gives you both precise inference and broad compatibility.</p>
+              </article>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Search Form -->
+      <section class="card">
+        <div class="card-header"><h2>Search Form</h2></div>
+        <div class="card-body">
+          <form action="/" method="get" class="search-form">
+            <input class="search-form__input" type="search" placeholder="Search posts…" aria-label="Search posts" />
+            <button class="search-form__submit" type="submit">Search</button>
+          </form>
+        </div>
+      </section>
+
+      <!-- Prose (Blog Content) -->
+      <section class="card">
+        <div class="card-header"><h2>Prose (Blog Style)</h2></div>
+        <div class="card-body">
+          <article class="prose">
+            <header class="stack stack--tight">
+              <p class="text-subtle"><a href="#">← Back to Blog</a></p>
+              <div class="post-header__meta">
+                <time>2026-07-01</time>
+                <a class="post-tag" href="#">elixir</a>
+              </div>
+              <h1>Article Title</h1>
+            </header>
+            <div class="post-content">
+              <p>The <code>.prose</code> class is designed for long-form content. It manages vertical rhythm, line length, and styling for standard HTML elements like lists and quotes.</p>
+              <ul>
+                <li>First item in a list</li>
+                <li>Second item with some <strong>bold text</strong></li>
+              </ul>
+              <blockquote>
+                "This is a blockquote. It's used to highlight important excerpts or citations within a blog post."
+              </blockquote>
+              <pre><code>def hello do
+  IO.puts "Hello World"
+end</code></pre>
+            </div>
+            <footer class="prose-footer stack stack--tight">
+              <p class="text-subtle">Thanks for reading!</p>
+              <a href="#">← Back to Blog</a>
+            </footer>
+          </article>
+        </div>
+      </section>
+
+      <!-- Tag Chips -->
+      <section class="card">
+        <div class="card-header"><h2>Tag Chips</h2></div>
+        <div class="card-body">
+          <div class="cluster">
+            <a class="post-tag" href="#">elixir</a>
+            <a class="post-tag" href="#">typescript</a>
+            <a class="post-tag" href="#">anabranch</a>
+            <a class="post-tag" href="#">kafkajs</a>
+            <a class="post-tag" href="#">devops</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- Card Variants -->
+      <section class="card">
+        <div class="card-header"><h2>Card Variants</h2></div>
+        <div class="card-body grid">
+          <div class="card">
+            <div class="card-header">Default</div>
+            <div class="card-body">Standard card with header and body.</div>
+            <div class="card-footer"><a href="#">Action</a></div>
+          </div>
+          <div class="card card--raised">
+            <div class="card-body">Raised card (hover lift effect).</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Layout Patterns: Stacks -->
+      <section class="card">
+        <div class="card-header"><h2>Stacks</h2></div>
+        <div class="card-body grid">
+          <div class="stack stack--tight">
+            <p class="text-subtle">Tight Stack</p>
+            <div style="background: var(--surface-muted, #292524); height: 20px;"></div>
+            <div style="background: var(--surface-muted, #292524); height: 20px;"></div>
+          </div>
+          <div class="stack">
+            <p class="text-subtle">Default Stack</p>
+            <div style="background: var(--surface-muted, #292524); height: 20px;"></div>
+            <div style="background: var(--surface-muted, #292524); height: 20px;"></div>
+          </div>
+          <div class="stack stack--loose">
+            <p class="text-subtle">Loose Stack</p>
+            <div style="background: var(--surface-muted, #292524); height: 20px;"></div>
+            <div style="background: var(--surface-muted, #292524); height: 20px;"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Layout Patterns: Grid -->
+      <section class="stack stack--tight">
+        <h2>Grid Layout</h2>
+        <div class="grid">
+          <div class="card"><div class="card-body">Grid Item 1</div></div>
+          <div class="card"><div class="card-body">Grid Item 2</div></div>
+          <div class="card"><div class="card-body">Grid Item 3</div></div>
+        </div>
+      </section>
+
+      <!-- Unused Components (deferred) -->
+
       <!-- Badges -->
       <section class="card">
-        <div class="card-header"><h2>Badges</h2></div>
+        <div class="card-header"><h2>Badges <span class="text-subtle">(not yet used)</span></h2></div>
         <div class="card-body">
           <div class="cluster">
             <span class="badge badge--primary">Primary</span>
@@ -73,7 +220,7 @@ noindex: true
 
       <!-- Alerts -->
       <section class="card">
-        <div class="card-header"><h2>Alerts</h2></div>
+        <div class="card-header"><h2>Alerts <span class="text-subtle">(not yet used)</span></h2></div>
         <div class="card-body stack">
           <div class="alert alert--info">
             <div>
@@ -98,7 +245,7 @@ noindex: true
 
       <!-- Buttons -->
       <section class="card">
-        <div class="card-header"><h2>Buttons</h2></div>
+        <div class="card-header"><h2>Buttons <span class="text-subtle">(not yet used)</span></h2></div>
         <div class="card-body">
           <div class="cluster">
             <button class="btn btn--primary">Primary Button</button>
@@ -108,30 +255,9 @@ noindex: true
         </div>
       </section>
 
-      <!-- Prose (Blog Content) -->
-      <section class="card">
-        <div class="card-header"><h2>Prose (Blog Style)</h2></div>
-        <div class="card-body">
-          <div class="prose">
-            <h3>Article Title Inside Prose</h3>
-            <p>The <code>.prose</code> class is designed for long-form content. It manages vertical rhythm, line length, and styling for standard HTML elements like lists and quotes.</p>
-            <ul>
-              <li>First item in a list</li>
-              <li>Second item with some <strong>bold text</strong></li>
-            </ul>
-            <blockquote>
-              "This is a blockquote. It's used to highlight important excerpts or citations within a blog post."
-            </blockquote>
-            <pre><code>def hello do
-  IO.puts "Hello World"
-end</code></pre>
-          </div>
-        </div>
-      </section>
-
       <!-- Forms -->
       <section class="card">
-        <div class="card-header"><h2>Forms</h2></div>
+        <div class="card-header"><h2>Forms <span class="text-subtle">(not yet used)</span></h2></div>
         <div class="card-body stack">
           <div class="form-group">
             <label>Full Name</label>
@@ -145,35 +271,8 @@ end</code></pre>
         </div>
       </section>
 
-      <!-- Layout Patterns: Stacks -->
-      <section class="card">
-        <div class="card-header"><h2>Stacks</h2></div>
-        <div class="card-body grid">
-          <div class="stack stack--tight">
-            <p class="text-subtle">Tight Stack</p>
-            <div style="background: var(--surface-muted, #292524); height: 20px;"></div>
-            <div style="background: var(--surface-muted, #292524); height: 20px;"></div>
-          </div>
-          <div class="stack">
-            <p class="text-subtle">Default Stack</p>
-            <div style="background: var(--surface-muted, #292524); height: 20px;"></div>
-            <div style="background: var(--surface-muted, #292524); height: 20px;"></div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Layout Patterns: Grid -->
-      <section class="stack stack--tight">
-        <h2>Grid Layout</h2>
-        <div class="grid">
-          <div class="card"><div class="card-body">Grid Item 1</div></div>
-          <div class="card"><div class="card-body">Grid Item 2</div></div>
-          <div class="card"><div class="card-body">Grid Item 3</div></div>
-        </div>
-      </section>
-
       <footer class="cluster cluster--center">
-        <span class="text-subtle">Design System v1.1</span>
+        <span class="text-subtle">Design System v1.2</span>
         <a href="/">Back to Index</a>
       </footer>
     </div>
