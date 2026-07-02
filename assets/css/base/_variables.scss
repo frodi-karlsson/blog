@@ -19,13 +19,35 @@ $palette-orange-400: #fb923c;
 $palette-orange-500: #f97316;
 $palette-orange-600: #ea580c;
 
+$palette-amber-50: #fffbeb;
+$palette-amber-100: #fef3c7;
+$palette-amber-200: #fde68a;
+$palette-amber-300: #fcd34d;
+$palette-amber-400: #fbbf24;
+$palette-amber-500: #f59e0b;
+$palette-amber-600: #d97706;
+
 $palette-green-400: #4ade80;
 $palette-red-400: #f87171;
+$palette-blue-50: #f0f9ff;
+$palette-blue-100: #e0f2fe;
+$palette-blue-200: #bae6fd;
+$palette-blue-300: #7dd3fc;
 $palette-blue-400: #38bdf8;
+$palette-blue-500: #0ea5e9;
+$palette-blue-600: #0284c7;
+
+$palette-rose-50: #fff1f2;
+$palette-rose-100: #ffe4e6;
+$palette-rose-200: #fecdd3;
+$palette-rose-300: #fda4af;
+$palette-rose-400: #fb7185;
+$palette-rose-500: #f43f5e;
+$palette-rose-600: #e11d48;
 
 // --- Semantic Tokens ---
-$primary: $palette-orange-400;
-$primary-hover: $palette-orange-500;
+$primary: $palette-rose-400;
+$primary-hover: $palette-rose-500;
 $secondary: $palette-stone-400;
 $success: $palette-green-400;
 $danger: $palette-red-400;
@@ -45,7 +67,7 @@ $border-strong: $palette-stone-700;
 $input-bg: $palette-stone-900;
 $input-border: $palette-stone-700;
 $input-text: $palette-stone-50;
-$input-focus-border: $palette-orange-400;
+$input-focus-border: $palette-rose-400;
 
 $font-main: 'Inter', system-ui, sans-serif;
 $font-mono: 'JetBrains Mono', monospace;
