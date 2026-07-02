@@ -1,8 +1,9 @@
 <article class="prose">
   <header class="stack stack--tight" data-testid="blog-post-header">
     <p class="text-subtle"><a href="/">← Back to Blog</a></p>
-    <div class="cluster tags-row">{{tags}}</div>
-    <time class="text-subtle">{{date}}</time>
+    <div class="post-header__meta">
+      <time>{{date}}</time>{{tags}}
+    </div>
     <h1>{{title}}</h1>
   </header>
 

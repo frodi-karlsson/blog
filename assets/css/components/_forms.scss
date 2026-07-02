@@ -23,13 +23,50 @@
 
 .search-form {
   display: flex;
-  flex-wrap: wrap;
+  align-items: baseline;
   gap: vars.$space-3;
-  align-items: center;
+  padding-bottom: vars.$space-3;
+  border-bottom: 1px solid vars.$border-light;
+  transition: border-color 0.2s;
+  margin-bottom: vars.$space-12;
+
+  &:focus-within {
+    border-color: vars.$primary;
+  }
 
   &__input {
-    flex: 1 1 240px;
+    flex: 1 1 auto;
     min-width: 0;
+    background: transparent;
+    border: 0;
+    color: vars.$text-strong;
+    font: inherit;
+    font-size: 1.0625rem;
+    padding: vars.$space-2 0;
+
+    &:focus {
+      outline: none;
+    }
+
+    &::placeholder {
+      color: vars.$text-subtle;
+    }
+  }
+
+  &__submit {
+    background: transparent;
+    border: 0;
+    padding: 0;
+    color: vars.$primary;
+    font: inherit;
+    font-size: 0.9375rem;
+    cursor: pointer;
+
+    &:hover,
+    &:focus-visible {
+      text-decoration: underline;
+      text-underline-offset: 0.2em;
+    }
   }
 }
 

@@ -4,11 +4,9 @@
   display: inline-flex;
   align-items: center;
   padding: vars.$space-1 vars.$space-2;
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: 0.8125rem;
+  font-weight: 500;
   border-radius: vars.$radius-base;
-  text-transform: uppercase;
-  letter-spacing: 0.025em;
   border: 1px solid transparent;
 
   &--primary {
@@ -28,26 +26,4 @@
     padding-left: vars.$space-3;
     padding-right: vars.$space-3;
   }
-
-  &--tag {
-    background: rgba(vars.$secondary, 0.1);
-    color: vars.$secondary;
-    border-color: rgba(vars.$secondary, 0.2);
-    border-radius: vars.$radius-full;
-    text-transform: none;
-    letter-spacing: 0;
-    padding: vars.$space-1 vars.$space-2;
-    font-size: 0.7rem;
-    text-decoration: none;
-
-    &:hover,
-    &:focus {
-      background: rgba(vars.$secondary, 0.2);
-      color: vars.$secondary;
-    }
-  }
-}
-
-.tags-row:empty {
-  display: none;
 }

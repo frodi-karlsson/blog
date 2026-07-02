@@ -1,8 +1,9 @@
-<article class="card card--raised" data-testid="blog-post-card">
-  <div class="card-body stack stack--tight">
-    <div class="cluster tags-row">{{tags}}</div>
-    <span class="text-subtle">{{date}}</span>
-    <h2><a href="{{url}}" data-testid="blog-post-link">{{title}}</a></h2>
-    <p class="text-subtle">{{summary}}</p>
+<article class="writing-entry" data-testid="blog-post-card">
+  <div class="writing-entry__meta">
+    <time>{{date}}</time>{{tags}}
   </div>
+  <h2 class="writing-entry__title">
+    <a href="{{url}}" data-testid="blog-post-link">{{title}}</a>
+  </h2>
+  <p class="writing-entry__summary">{{summary}}</p>
 </article>
