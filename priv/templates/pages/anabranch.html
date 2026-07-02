@@ -81,21 +81,19 @@ console.log(`${successes.length} processed, ${errors.length} failed`);</code></p
         <p>Every success-side operation has an error-side counterpart. <code>map</code> has <code>mapErr</code>. <code>filter</code> has <code>filterErr</code>. <code>tap</code> has <code>tapErr</code>. On top of those, there are recovery operations: <code>recover</code> converts any error into a success value, and <code>recoverWhen</code> lets you target a specific error type while leaving others untouched. The type system tracks this: after a <code>recover()</code>, the error type collapses to <code>never</code>:</p>
 
         <pre><code class="language-typescript">import { Source } from "@anabranch/anabranch";
-import type { NetworkError, ParseError } from "./errors.ts";
+import { NetworkError, ParseError } from "./errors.ts";
 
 const results = await Source.from&lt;string, NetworkError | ParseError&gt;(fetchItems)
   .map((item) =&gt; parse(item))
-  .mapErr((err) =&gt; ({ ...err, context: "item pipeline" }))
   .recoverWhen(
     (err): err is ParseError =&gt; err instanceof ParseError,
     (_err) =&gt; null,           // replace parse errors with null
   )
+  .mapErr((err) =&gt; ({ ...err, context: "item pipeline" }))
   .filter((v) =&gt; v !== null)  // drop nulls, TypeScript knows v is not null
   .collect();                  // Stream&lt;ParsedItem, NetworkError&gt; -- ParseError is gone</code></pre>
 
         <p>The <code>throwOn</code> method is the escape hatch going the other direction: it re-throws on a specific error type, which is useful when you want to bail out of a pipeline at a known fatal condition.</p>
-
-        <p>For more integrated transformations, <code>tryMap</code> allows you to map successful values and transform errors within a single operation, providing both the original value and the error to your error handling function.</p>
 
         <p>Beyond individual stream transformations, you can also combine streams: <code>zip</code> combines two streams into tuples, pairing values one-to-one, while <code>merge</code> interleaves results from multiple streams as they become available, enabling concurrent processing of independent data flows.</p>
 
@@ -113,7 +111,7 @@ const user = await Task.of((signal) =&gt; fetch("/api/user", { signal }).then((r
   .timeout(5_000)
   .run();</code></pre>
 
-        <p>Beyond these, <code>Task</code> also provides <code>tryMap</code> for integrated mapping and error transformation, <code>tap</code> and <code>tapErr</code> for side effects without altering the result, and <code>tryFlatMap</code> and <code>flatMapErr</code> for advanced chaining logic, allowing you to manipulate both success and error paths with precision.</p>
+        <p>Beyond these, <code>Task</code> also provides <code>tap</code> and <code>tapErr</code> for side effects without altering the result, and <code>flatMapErr</code> for advanced chaining logic, allowing you to manipulate both success and error paths with precision.</p>
 
         <p>Tasks also compose for concurrency: `Task.allSettled` collects all results without throwing, while `Task.all` rejects on the first failure, making it suitable for scenarios where all tasks must succeed. `Task.race` resolves with the first settled result, letting you manage multiple independent operations while keeping their individual error-handling logic intact.</p>
 
@@ -127,8 +125,8 @@ const user = await Task.of((signal) =&gt; fetch("/api/user", { signal }).then((r
 
 const finalResult = await Task.chain([
   () => Task.of(() => 10),
-  (value) => Task.of(() => value * 2),
-  (doubledValue) => Task.of(() => `Result: ${doubledValue}`),
+  value => Task.of(() => value * 2),
+  doubledValue => Task.of(() => `Result: ${doubledValue}`),
 ]).run();
 
 console.log(finalResult); // Output: Result: 20
@@ -139,7 +137,7 @@ console.log(finalResult); // Output: Result: 20
 
         <pre><code class="language-typescript">import { Channel } from "@anabranch/anabranch";
 
-const channel = Channel.create&lt;string, Error&gt;({ bufferSize: 256 });
+const channel = Channel.create&lt;string, Error&gt;().withBufferSize(256);
 
 ws.on("message", (data) =&gt; channel.send(data));
 ws.on("error", (err) =&gt; channel.fail(err));
@@ -176,7 +174,7 @@ const { successes: broken, errors } = await BrokenLinkChecker.create()
   .withConcurrency(20)
   .withTimeout(10_000)
   .check(["https://example.com", "https://example.com/sitemap.xml"])
-  .tap((r) =&gt; console.log(`[${r.statusCode}] ${r.url}`))
+  .tap((r) =&gt; console.log(`[${r.status}] ${r.url}`))
   .tapErr((err) =&gt; console.error("Crawler error:", err.message))
   .filter((r) =&gt; !r.ok)  // keep only broken links
   .partition();           // successes = broken, errors = crawler failures</code></pre>
@@ -189,14 +187,14 @@ const { successes: broken, errors } = await BrokenLinkChecker.create()
         <p>The <code>@anabranch/queue</code> package provides a message queue abstraction with Task/Stream semantics. It handles delayed delivery, dead letter queues, and visibility timeouts, with separate adapters for Redis (<code>@anabranch/queue-redis</code>) and RabbitMQ (<code>@anabranch/queue-rabbitmq</code>).</p>
 
         <pre><code class="language-typescript">import { Queue } from "@anabranch/queue";
-import { RedisConnector } from "@anabranch/queue-redis";
+import { createRedis } from "@anabranch/queue-redis";
 
-const connector = new RedisConnector({ redisUrl: REDIS_URL });
+const connector = createRedis({ connection: REDIS_URL });
 const queue = await Queue.connect(connector).run();
 
 // Stream messages with concurrent processing
 const { successes, errors } = await queue
-  .stream("notifications", { concurrency: 5 })
+  .stream("notifications", { count: 5 })
   .map(async (msg) =&gt; await sendNotification(msg.data))
   .partition();</code></pre>
 
@@ -204,9 +202,9 @@ const { successes, errors } = await queue
         <p>The <code>@anabranch/storage</code> package brings uniform object storage primitives. It supports AWS S3 (<code>@anabranch/storage-s3</code>), Google Cloud Storage (<code>@anabranch/storage-gcs</code>), and even IndexedDB (<code>@anabranch/storage-browser</code>) for local browser storage.</p>
 
         <pre><code class="language-typescript">import { Storage } from "@anabranch/storage";
-import { S3Connector } from "@anabranch/storage-s3";
+import { createS3 } from "@anabranch/storage-s3";
 
-const storage = await Storage.connect(new S3Connector({ bucket: "uploads" })).run();
+const storage = await Storage.connect(createS3({ bucket: "uploads", region: "us-east-1" })).run();
 
 // Upload a file as a Task
 await storage.put("hello.txt", "Hello world").run();
@@ -233,19 +231,19 @@ const { successes, errors } = await glob("./src", "**/*.ts")
   .partition();</code></pre>
 
         <h2>Ecosystem: Database</h2>
-        <p>The database package wraps any DB adapter in the same <code>Task</code>/<code>Source</code> type universe. <code>db.query()</code> returns a <code>Task</code>, and <code>db.stream()</code> returns a cursor-backed <code>Source</code> for large result sets. <code>DB.withConnection</code> uses <code>Task.acquireRelease</code> under the hood, so the connection is guaranteed to release back to the pool whether the operation succeeds or throws.</p>
+        <p>The database package wraps any DB adapter in the same <code>Task</code>/<code>Source</code> type universe. <code>db.query()</code> returns a <code>Task</code>, and <code>db.stream()</code> returns a cursor-backed <code>Source</code> for large result sets. <code>DB.withConnection</code> uses <code>Task.acquireRelease</code> under the hood, so the connection is guaranteed to release back to the pool whether the operation succeeds or throws. Since <code>withConnection</code> expects a <code>Task</code>, you wrap the stream pipeline in <code>Task.of(() => ...)</code> so the stream runs lazily inside the task and terminal operations like <code>fold</code> resolve to a value.</p>
 
-        <p>A <code>withTransaction</code> method executes a callback within a transaction, automatically committing on success or rolling back on error, providing a safe and composable way to handle database transactions.</p>
+        <p>A <code>withTransaction</code> method is also available for operations that need atomicity. It executes a callback within a transaction, automatically committing on success or rolling back on error.</p>
 
         <pre><code class="language-typescript">import { Task } from "@anabranch/anabranch";
 import { DB } from "@anabranch/db";
-import { PostgresConnector } from "@anabranch/db-postgres";
+import { createPostgres } from "@anabranch/db-postgres";
 
-const connector = new PostgresConnector({ connectionString: DATABASE_URL });
+const connector = createPostgres({ connectionString: DATABASE_URL });
 
 const totalRevenue = await DB.withConnection(connector, (db) =&gt;
-  db.withTransaction(async (tx) =&gt;
-    tx.stream&lt;Order&gt;("SELECT * FROM orders WHERE status = 'paid'")
+  Task.of(() =&gt;
+    db.stream&lt;Order&gt;("SELECT * FROM orders WHERE status = 'paid'")
       .tapErr((err) =&gt; console.error("Stream error:", err.message))
       .filter((order) =&gt; order.currency === "USD")
       .map((order) =&gt; order.total)
