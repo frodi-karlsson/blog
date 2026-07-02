@@ -105,7 +105,7 @@ const results = await Source.from&lt;string, NetworkError | ParseError&gt;(fetch
 const user = await Task.of((signal) =&gt; fetch("/api/user", { signal }).then((r) =&gt; r.json()))
   .retry({
     attempts: 3,
-    delay: (attempt, _err) =&gt; 200 * 2 ** attempt, // 200ms, 400ms, 800ms
+    delay: (attempt, _err) =&gt; 200 * 2 ** attempt, // 200ms, 400ms (two delays for 3 attempts)
     when: (err) =&gt; err instanceof NetworkError,
   })
   .timeout(5_000)
@@ -139,7 +139,7 @@ console.log(finalResult); // Output: Result: 20
 
 const channel = Channel.create&lt;string, Error&gt;().withBufferSize(256);
 
-ws.on("message", (data) =&gt; channel.send(data));
+ws.on("message", (data) =&gt; channel.trySend(data));
 ws.on("error", (err) =&gt; channel.fail(err));
 ws.on("close", () =&gt; channel.close());
 
@@ -149,7 +149,7 @@ for await (const result of channel) {
 
         <p>If the consumer falls behind, <code>Channel</code> drops values once the buffer is full, with an optional <code>onDrop</code> callback for monitoring. Because <code>Channel</code> extends <code>Stream</code>, you can chain <code>map</code>, <code>filter</code>, or any other stream operation directly on it before consuming.</p>
 
-        <p>Producers can use <code>channel.waitForCapacity()</code> to pause until there's space in the buffer, respecting backpressure and preventing dropped messages. You can also check the channel's status with <code>channel.isClosed()</code>. If a channel is aborted via an `AbortSignal`, `waitForCapacity()` will reject with a `ChannelAbortError`.</p>
+        <p>For pump-style producers where the producer can be paused, use <code>await channel.send(value)</code> to block until capacity is available. For push-based producers (event handlers, callbacks) where the producer can't be paused, use <code>channel.trySend(value)</code> — it returns <code>false</code> and invokes <code>onDrop</code> if the buffer is full. You can also check the channel's status with <code>channel.isClosed()</code>. Both <code>send()</code> and <code>waitForCapacity()</code> resolve silently when the channel is closed or aborted (never reject).</p>
 
         <h2>Concurrency</h2>
         <p>By default, <code>map</code> and <code>flatMap</code> execute sequentially. Calling <code>.withConcurrency(n)</code> on the source opts into parallel execution: up to <code>n</code> items are in flight simultaneously and results are collected as they complete, potentially out of order. <code>.withBufferSize(n)</code> adds backpressure so the source pauses if more than <code>n</code> results are queued downstream.</p>
