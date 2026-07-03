@@ -42,7 +42,7 @@ defmodule Webserver.TemplateServer.BlogItemRenderer do
   Returns an empty string for an empty list.
   """
   @tag_chip_key "partials/tag_chip.html"
-  @tag_chip_fallback " · <a class=\"post-tag\" href=\"/tags/{{tag}}\" data-testid=\"tag-chip\">{{tag}}</a>"
+  @tag_chip_fallback ~s( · <a class="post-tag" href="/tags/{{tag}}" data-testid="tag-chip">{{tag}}</a>)
 
   @spec render_tag_chips([String.t()], map()) :: String.t()
   def render_tag_chips([], _partials), do: ""
