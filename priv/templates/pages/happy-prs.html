@@ -2,12 +2,12 @@
 title: Happy PRs, and the Feedback Loop That Built It
 date: 2026-07-01
 tags: tooling, swift
-summary: Vibe coding a small macOS menubar app to handle the flip side of agentic coding: a reviewer backlog that grows faster than notifications can keep up with.
+summary: Building a macOS menubar app to handle the flip side of agentic coding: a reviewer backlog that grows faster than notifications can keep up with.
 canonical: https://blog.frodikarlsson.com/happy-prs
 ---
 <% layout.html %>
   <slot:title>Happy PRs, and the Feedback Loop That Built It</slot:title>
-  <slot:description>Vibe coding a small macOS menubar app to handle the flip side of agentic coding: a reviewer backlog that grows faster than notifications can keep up with.</slot:description>
+  <slot:description>Building a macOS menubar app to handle the flip side of agentic coding: a reviewer backlog that grows faster than notifications can keep up with.</slot:description>
   <slot:og_type>article</slot:og_type>
   <slot:body>
     <% blog_post.html %>
@@ -24,7 +24,7 @@ canonical: https://blog.frodikarlsson.com/happy-prs
 
         <h2>Happy PRs</h2>
 
-        <p>Today I vibe coded a little widget, <a href="https://github.com/frodi-karlsson/happy-prs" target="_blank" rel="noopener noreferrer">Happy PRs</a>, that lives in the macOS menubar and summarizes the PRs that need my attention. It sorts them into three buckets:</p>
+        <p>I built a little widget, <a href="https://github.com/frodi-karlsson/happy-prs" target="_blank" rel="noopener noreferrer">Happy PRs</a>, that lives in the macOS menubar and summarizes the PRs that need my attention. It sorts them into three buckets:</p>
 
         <ul>
           <li><strong>Needs your approval</strong>: I'm on the reviewer list and no one has approved the current HEAD yet. These are blocking on me.</li>
@@ -32,7 +32,7 @@ canonical: https://blog.frodikarlsson.com/happy-prs
           <li><strong>Mentions you</strong>: I'm <code>@</code>-mentioned in the body, a comment, or a review thread. Additive with the other buckets, because a discussion might need me even when my approval doesn't.</li>
         </ul>
 
-        <p>It also handles the case where GitHub silently drops your prior approval after new commits land but doesn't re-request review. Those PRs would otherwise vanish from my notifications entirely.</p>
+        <p>The app also tracks your own PRs (approved, conflicting, unresolved threads, awaiting reply), shows recently merged PRs, and surfaces system notifications for every event type. The menubar badge shows incoming, your-PR, and unread counts at a glance.</p>
 
         <figure>
           <img
@@ -46,7 +46,7 @@ canonical: https://blog.frodikarlsson.com/happy-prs
           <figcaption>The popover, showing what needs my attention right now.</figcaption>
         </figure>
 
-        <p>It's not the most impressive piece of software, but it's dev tooling that helps me, and it cost me just a few hours to build. I really appreciate that it's so easy to produce something that just <em>does exactly what you need</em> without having to wrestle with it.</p>
+        <p>The initial value was built in a few hours, and I really appreciate that it's so easy to produce something that just <em>does exactly what you need</em> without having to wrestle with it. The real polish came from iteration. Since that first session the tool has grown into something I can genuinely recommend to any developer who reviews a lot of PRs.</p>
 
         <p>Swift itself was a nice surprise along the way. The algebraic types and procedural style reminded me a lot of Rust in a good way, with enums that carry associated values, exhaustive pattern matching, and <code>Result</code>-style error handling, but without a borrow checker to argue with. It uses ARC (automatic reference counting) instead, inherited from Objective-C and closer in spirit to C++'s <code>std::shared_ptr</code> than to Rust's opt-in <code>Rc</code>/<code>Arc</code>. Memory just quietly works out, at the cost of some runtime overhead and the occasional retain cycle to keep an eye on.</p>
 
