@@ -52,6 +52,7 @@ defmodule Webserver.TemplateServer.BlogItemRenderer do
 
     Enum.map_join(tags, "", fn tag ->
       escaped = Plug.HTML.html_escape(tag)
+
       template
       |> String.replace("{{tag}}", escaped)
     end)
