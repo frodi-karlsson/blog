@@ -46,6 +46,12 @@ defmodule Webserver.Router do
     json(conn, 200, %{status: "ok"})
   end
 
+  get "/google713ba3faaf0ef1e0.html" do
+    conn
+    |> put_resp_content_type("text/html")
+    |> send_resp(200, "google-site-verification: google713ba3faaf0ef1e0.html")
+  end
+
   get("/live-reload", to: Webserver.LiveReload)
 
   get("/sitemap.xml", to: Sitemap)
