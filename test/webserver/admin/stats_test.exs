@@ -64,7 +64,14 @@ defmodule Webserver.Admin.StatsTest do
               count: 1,
               status: %{},
               all_time_mean_ms: 1.0,
-              window: %{size: 0, mean_ms: nil, median_ms: nil, p95_ms: nil, min_ms: nil, max_ms: nil}
+              window: %{
+                size: 0,
+                mean_ms: nil,
+                median_ms: nil,
+                p95_ms: nil,
+                min_ms: nil,
+                max_ms: nil
+              }
             }
           })
         )
