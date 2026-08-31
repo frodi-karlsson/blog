@@ -73,7 +73,7 @@ console.log(`${successes.length} processed, ${errors.length} failed`);</code></p
         <h2>Source and Stream</h2>
         <p><code>Source</code> is the entry point. It wraps an async generator: each <code>yield</code> becomes a success result, and any thrown error becomes a single error result. From a <code>Source</code> you get a <code>Stream</code>, which is where the pipeline API lives.</p>
 
-        <p>Beyond `Source.from` for async generators, you can also use `Source.fromResults` when your source already produces tagged results, `Source.fromTask` to convert a single asynchronous operation into a stream, or `Source.fromArray` for convenience when starting with a collection of values.</p>
+        <p>The other entry points are <code>Source.fromResults</code> when you already have tagged results, <code>Source.fromTask</code> for a single async operation, and <code>Source.fromArray</code> for a plain collection.</p>
 
         <p>A <code>Stream</code> is an <code>AsyncIterable&lt;Result&lt;T, E&gt;&gt;</code> with about 25 chainable methods: <code>map</code>, <code>flatMap</code>, <code>filter</code>, <code>fold</code>, <code>scan</code>, <code>take</code>, <code>chunks</code>, and more. Terminal operations like <code>collect()</code>, <code>toArray()</code>, <code>successes()</code>, and <code>partition()</code> consume the stream and return a promise. Everything is lazy: nothing runs until you call a terminal operation.</p>
 
@@ -95,7 +95,7 @@ const results = await Source.from&lt;string, NetworkError | ParseError&gt;(fetch
 
         <p>The <code>throwOn</code> method is the escape hatch going the other direction: it re-throws on a specific error type, which is useful when you want to bail out of a pipeline at a known fatal condition.</p>
 
-        <p>Beyond individual stream transformations, you can also combine streams: <code>zip</code> combines two streams into tuples, pairing values one-to-one, while <code>merge</code> interleaves results from multiple streams as they become available, enabling concurrent processing of independent data flows.</p>
+        <p>Streams combine as well as transform: <code>zip</code> pairs two streams into tuples one-to-one, and <code>merge</code> interleaves results from several streams as they arrive.</p>
 
         <h2>Task</h2>
         <p><code>Task&lt;T, E&gt;</code> is for single async operations: an HTTP call, a DB query, reading a file. It's lazy (nothing runs until you call <code>.run()</code> or <code>.result()</code>) and carries the same success/error vocabulary as <code>Stream</code>. The same <code>map</code>, <code>flatMap</code>, <code>mapErr</code>, <code>recover</code>, and <code>recoverWhen</code> methods are available. What <code>Task</code> adds is <code>retry</code>, <code>timeout</code>, and <code>withSignal</code>:</p>
@@ -111,16 +111,15 @@ const user = await Task.of((signal) =&gt; fetch("/api/user", { signal }).then((r
   .timeout(5_000)
   .run();</code></pre>
 
-        <p>Beyond these, <code>Task</code> also provides <code>tap</code> and <code>tapErr</code> for side effects without altering the result, and <code>flatMapErr</code> for advanced chaining logic, allowing you to manipulate both success and error paths with precision.</p>
+        <p><code>tap</code> and <code>tapErr</code> run side effects without touching the result, and <code>flatMapErr</code> chains off the error path.</p>
 
-        <p>Tasks also compose for concurrency: `Task.allSettled` collects all results without throwing, while `Task.all` rejects on the first failure, making it suitable for scenarios where all tasks must succeed. `Task.race` resolves with the first settled result, letting you manage multiple independent operations while keeping their individual error-handling logic intact.</p>
-
+        <p>Tasks compose for concurrency too: <code>Task.allSettled</code> collects every result without throwing, <code>Task.all</code> rejects on the first failure, and <code>Task.race</code> resolves with the first settled result.</p>
 
 
         <p><code>Task.acquireRelease</code> is a first-class bracket pattern: it acquires a resource, uses it, then releases it whether the use phase succeeded or failed. This is how the database package manages connection lifetimes, and you can use it directly for any resource that needs deterministic cleanup.</p>
 
         <h2>Task.chain: Sequential Composition</h2>
-        <p><code>Task.chain</code> provides a powerful way to compose a series of dependent asynchronous operations sequentially. Each task in the chain receives the successful result of the previous task, allowing for clear and concise definition of multi-step workflows. If any task in the chain fails, the entire chain short-circuits, returning the error immediately.</p>
+        <p><code>Task.chain</code> composes dependent operations sequentially. Each task receives the previous task's success value, and if any one of them fails the chain short-circuits and returns that error.</p>
         <pre><code class="language-typescript">import { Task } from "@anabranch/anabranch";
 
 const finalResult = await Task.chain([
@@ -233,7 +232,7 @@ const { successes, errors } = await glob("./src", "**/*.ts")
         <h2>Ecosystem: Database</h2>
         <p>The database package wraps any DB adapter in the same <code>Task</code>/<code>Source</code> type universe. <code>db.query()</code> returns a <code>Task</code>, and <code>db.stream()</code> returns a cursor-backed <code>Source</code> for large result sets. <code>DB.withConnection</code> uses <code>Task.acquireRelease</code> under the hood, so the connection is guaranteed to release back to the pool whether the operation succeeds or throws. Since <code>withConnection</code> expects a <code>Task</code>, you wrap the stream pipeline in <code>Task.of(() => ...)</code> so the stream runs lazily inside the task and terminal operations like <code>fold</code> resolve to a value.</p>
 
-        <p>A <code>withTransaction</code> method is also available for operations that need atomicity. It executes a callback within a transaction, automatically committing on success or rolling back on error.</p>
+        <p><code>withTransaction</code> runs a callback inside a transaction, committing on success and rolling back on error.</p>
 
         <pre><code class="language-typescript">import { Task } from "@anabranch/anabranch";
 import { DB } from "@anabranch/db";

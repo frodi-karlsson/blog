@@ -14,12 +14,12 @@ canonical: https://blog.frodikarlsson.com/bespoke-elixir-web-framework
       <slot:date>Feb 25, 2026</slot:date>
       <slot:title>Bespoke Elixir: Building a Lightweight Web Framework</slot:title>
       <slot:content>
-        <p>This blog isn't running on WordPress, Phoenix, or even a static site generator. It's running on a bespoke web framework I wrote in Elixir. I didn't want to pull in a massive framework just to serve some HTML, so I built exactly what I needed—from scratch, minus the HTTP parsing.</p>
+        <p>This blog isn't running on WordPress, Phoenix, or even a static site generator. It's running on a bespoke web framework I wrote in Elixir. I didn't want a whole framework just to serve some HTML, so I built exactly what I needed, from scratch, minus the HTTP parsing.</p>
 
-        <p>I'm primarily a Node developer, but I've been wanting to explore Elixir and the BEAM. This project was the perfect excuse to dive in and see how it handles the basics of the web.</p>
+        <p>I'm primarily a Node developer, and I'd been wanting an excuse to try Elixir and the BEAM.</p>
 
         <h2>Performance on a Budget</h2>
-        <p>The entire application is hosted on the cheapest DigitalOcean droplet available for just <strong>$4 a month</strong>. Despite the minimal resources, it achieves literally perfect Lighthouse scores. The combination of Elixir's efficiency and a lack of client-side bloat makes it incredibly fast.</p>
+        <p>The whole thing runs on the cheapest DigitalOcean droplet available, <strong>$4 a month</strong>, and still gets perfect Lighthouse scores. There's no client-side JavaScript to speak of, which does most of the work there.</p>
 
         <figure>
           <% img src='/static/img/web-vitals.png' alt='Web Vitals: Performance 100, Accessibility 100, Best Practices 100, SEO 100' sizes='(min-width: 768px) 728px, 100vw' %/>
@@ -68,7 +68,7 @@ Uncached parse:    3,143 req/s</code></pre>
 end</code></pre>
 
         <h2>The Core Server Loop</h2>
-        <p>The main logic for serving pages lives in <code>Webserver.Server</code>. It takes the request path, looks it up in the cache, and returns the parsed HTML. If the page doesn't exist, it handles the 404 gracefully.</p>
+        <p>The main logic for serving pages lives in <code>Webserver.Server</code>. It takes the request path, looks it up in the cache, and returns the parsed HTML, falling through to a 404 page if there's nothing there.</p>
 
         <pre><code class="language-elixir">def call(conn, _opts) do
   path = request_path(conn)
@@ -132,10 +132,10 @@ end</code></pre>
         <p>There is an explicit asset build step that does a bit more than just copying files. In production it generates responsive raster variants (via <code>vips</code>), generates WebP variants (via <code>cwebp</code>), writes <code>assets_meta.json</code> for dimensions, and then digests the output for cache busting. The build is strict in production: missing tooling or failed conversions will fail the build instead of silently shipping a broken page.</p>
 
         <h2>Live Reload</h2>
-        <p>For a smooth development experience, I implemented live reloading. The server watches the filesystem using <a href="https://github.com/synrc/fs" target="_blank" rel="noopener noreferrer">fs</a>. The browser keeps an SSE connection open, and when a change is detected, the server sends a signal to reload the page or swap CSS in place.</p>
+        <p>The server watches the filesystem using <a href="https://github.com/synrc/fs" target="_blank" rel="noopener noreferrer">fs</a>. The browser keeps an SSE connection open, and when a change is detected the server sends a signal to reload the page or swap CSS in place.</p>
 
         <h2>Hosting and Deployment</h2>
-        <p>Deployment fully automated with GitHub Actions and Docker. When I push to <code>main</code>, an image is built and pushed to GHCR. On the droplet, <a href="https://containrrr.dev/watchtower/" target="_blank" rel="noopener noreferrer">Watchtower</a> detects the new image and restarts the container within 30 seconds. No manual intervention required.</p>
+        <p>Deployment is GitHub Actions and Docker. When I push to <code>main</code>, an image is built and pushed to GHCR. On the droplet, <a href="https://containrrr.dev/watchtower/" target="_blank" rel="noopener noreferrer">Watchtower</a> detects the new image and restarts the container within 30 seconds.</p>
 
         <p>Because image variants are generated during the build, the Docker image also includes the required native tools (<code>libvips</code> and <code>webp</code>) so production builds are reproducible.</p>
 
@@ -149,8 +149,8 @@ end</code></pre>
         <p>Having to figure out caching, static files, and templates myself meant I actually understood what I was building. That's the point.</p>
 
         <h2>Elixir vs Node</h2>
-        <p>Most of my professional work is in TypeScript and Node. They are great tools, but they feel very different from Elixir. What I enjoy most is how the BEAM makes concurrency so effortless. I don't have to worry about mutexes or thread pools. Running Node safely can also be tricky because JavaScript grew up in the browser where failing silently is common, not in a runtime built for error-proof systems.</p>
-        <p>Building this bespoke framework over the last few days has been a great way to learn Elixir. It's a powerful, elegant language that makes building resilient systems feel natural. It's definitely a tool I'll be reaching for again.</p>
+        <p>Most of my professional work is in TypeScript and Node. What I enjoy most about the BEAM is not having to think about concurrency: no mutexes, no thread pools, no worrying about what a slow handler does to everything else. Node is harder to run safely, mostly because JavaScript grew up in the browser, where failing silently is a feature, rather than in a runtime built around supervision and crash recovery.</p>
+        <p>A few days of building this was a good way to learn the language, and I'll be reaching for it again.</p>
         <p>You can even <a href="https://github.com/frodi-karlsson/blog/blob/main/priv/templates/pages/bespoke-elixir-web-framework.html" target="_blank" rel="noopener noreferrer">view the source for this very page on GitHub</a> to see how the templating works in practice.</p>
       </slot:content>
     <%/ blog_post.html %>
