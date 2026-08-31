@@ -342,8 +342,20 @@ defmodule Webserver.TemplateServer.Cache do
 
     pages = ContentGenerator.generate_page_registry(pages_meta)
     :ets.insert(state.table, {:page_registry, pages})
+    :ets.insert(state.table, {:page_path_set, page_path_set(pages)})
 
     %{state | partials: partials_with_blog}
+  end
+
+  # Published alongside the registry so the metrics handler can test a path
+  # with a set lookup instead of scanning every page on each request.
+  defp page_path_set(pages) do
+    pages
+    |> Enum.flat_map(fn
+      %{"path" => path} when is_binary(path) -> [path]
+      _ -> []
+    end)
+    |> MapSet.new()
   end
 
   defp refresh_tag_pages(table, tag_pages) do
