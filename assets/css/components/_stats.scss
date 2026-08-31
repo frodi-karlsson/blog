@@ -1,0 +1,98 @@
+@use "../base/variables" as vars;
+
+.stat-tile {
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-2;
+  padding: vars.$space-4 vars.$space-6;
+  background: vars.$surface;
+  border: 1px solid vars.$border-light;
+  border-radius: vars.$radius-lg;
+}
+
+.stat-tile__label {
+  font-family: vars.$font-mono;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: vars.$text-main;
+}
+
+.stat-tile__value {
+  font-family: vars.$font-display;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  line-height: 1.1;
+  color: vars.$text-strong;
+}
+
+// Tables are the one place the page is allowed to scroll sideways.
+.stat-table-wrap {
+  overflow-x: auto;
+}
+
+.stat-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+
+  th,
+  td {
+    padding: vars.$space-3 vars.$space-4;
+    text-align: right;
+    white-space: nowrap;
+    border-bottom: 1px solid vars.$border-light;
+  }
+
+  thead th {
+    font-family: vars.$font-mono;
+    font-size: 0.75rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: vars.$text-main;
+    font-weight: 400;
+  }
+
+  th:first-child,
+  td:first-child {
+    text-align: left;
+  }
+
+  tbody th {
+    font-weight: 400;
+    font-family: vars.$font-mono;
+  }
+
+  tbody th a {
+    color: vars.$primary;
+    text-decoration: none;
+  }
+
+  tbody th a:hover,
+  tbody th a:focus-visible {
+    text-decoration: underline;
+  }
+
+  tbody tr:last-child th,
+  tbody tr:last-child td {
+    border-bottom: 0;
+  }
+}
+
+.stat-status {
+  font-family: vars.$font-mono;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+
+  & + & {
+    margin-left: vars.$space-2;
+  }
+
+  &--4 {
+    color: vars.$primary;
+  }
+
+  &--5 {
+    color: vars.$primary;
+    font-weight: 600;
+  }
+}

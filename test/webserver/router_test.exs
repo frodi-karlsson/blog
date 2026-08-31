@@ -54,6 +54,37 @@ defmodule Webserver.RouterTest do
     end
   end
 
+  describe "GET /admin/stats.json" do
+    test "should return the merged server, cache and request payload" do
+      conn = call(:get, "/admin/stats.json")
+      assert conn.status == 200
+      assert conn.resp_headers |> List.keyfind("content-type", 0) |> elem(1) =~ "application/json"
+
+      body = Jason.decode!(conn.resp_body)
+
+      assert %{"server" => server, "cache" => cache, "beam" => beam, "requests" => requests} =
+               body
+
+      assert Map.has_key?(server, "uptime_ms")
+      assert Map.has_key?(cache, "hit_rate")
+      assert Map.has_key?(cache, "hits")
+      assert Map.has_key?(beam, "process_count")
+      assert Map.has_key?(requests, "by_path")
+      assert Map.has_key?(requests, "req_per_sec")
+    end
+  end
+
+  describe "GET /admin/stats" do
+    test "should render the dashboard as HTML" do
+      conn = call(:get, "/admin/stats")
+      assert conn.status == 200
+      assert conn.resp_headers |> List.keyfind("content-type", 0) |> elem(1) =~ "text/html"
+      assert conn.resp_body =~ ~s(data-testid="stat-tiles")
+      assert conn.resp_body =~ "Cache hit rate"
+      refute conn.resp_body =~ "Stats unavailable."
+    end
+  end
+
   describe "POST /admin/cache/refresh" do
     test "should return 200 on success" do
       conn = call(:post, "/admin/cache/refresh")

@@ -6,8 +6,9 @@ defmodule Webserver.AdminRouter do
   use Plug.Router
   import Webserver.ConnHelpers
 
+  alias Webserver.Admin.Stats
+  alias Webserver.Admin.StatsPage
   alias Webserver.Server
-  alias Webserver.Telemetry.Metrics
   alias Webserver.TemplateServer.Cache
 
   plug(:match)
@@ -21,13 +22,20 @@ defmodule Webserver.AdminRouter do
     Plug.BasicAuth.basic_auth(conn, username: username, password: password)
   end
 
+  # Kept for compatibility; /stats.json now carries these under :cache too.
   get "/cache/stats" do
     stats = Cache.stats()
     json(conn, 200, stats)
   end
 
+  get "/stats.json" do
+    json(conn, 200, Stats.snapshot())
+  end
+
   get "/stats" do
-    json(conn, 200, Metrics.snapshot())
+    conn
+    |> put_resp_content_type("text/html")
+    |> send_resp(200, StatsPage.render(Stats.snapshot()))
   end
 
   post "/cache/refresh" do
