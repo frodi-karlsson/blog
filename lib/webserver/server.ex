@@ -143,7 +143,7 @@ defmodule Webserver.Server do
       <slot:body>
         <div class="stack stack--loose">
           #{banner}
-          <div class="grid">#{items}</div>
+          <div class="writing__list">#{items}</div>
         </div>
       </slot:body>
     <%/ layout.html %>
