@@ -1,0 +1,76 @@
+---
+title: Immortal Keys: The Rate Limiter That Never Reset
+date: 2026-09-01
+tags: redis, debugging
+summary: A fixed-window rate limiter where INCR could recreate an expired key without a TTL, permanently locking users out.
+canonical: https://blog.frodikarlsson.com/redis-immortal-keys
+---
+<% layout.html %>
+  <slot:title>Immortal Keys: The Rate Limiter That Never Reset</slot:title>
+  <slot:description>A fixed-window rate limiter where INCR could recreate an expired key without a TTL, permanently locking users out.</slot:description>
+  <slot:og_type>article</slot:og_type>
+  <slot:body>
+    <% blog_post.html %>
+      <slot:date>Sep 1, 2026</slot:date>
+      <slot:title>Immortal Keys: The Rate Limiter That Never Reset</slot:title>
+      <slot:content>
+        <p>The error report said a user had made dozens of requests in a twenty-second window. They hadn't. Nothing in the traffic looked like a burst, and the number was too high for any plausible client behaviour.</p>
+
+        <p>So we spent a while looking at the client. That's the natural place to look: a retry loop gone wrong, a component mounting twice, something firing on every keystroke. The rate limiter itself never came up as a suspect. It's a counter in Redis with a TTL on it. Redis would just work.</p>
+
+        <h2>The limiter</h2>
+
+        <p>A fixed-window rate limiter backed by Redis: one key per thing being limited, holding a request counter. The first request creates the key with a TTL equal to the window, later requests increment it, and once the count passes the limit requests get rejected until the key expires.</p>
+
+        <p>The implementation split that across two commands:</p>
+
+        <pre><code>count = GET key
+
+if count is missing:
+    SET key 1 EXAT &lt;now + window&gt;    # the only place a TTL is set
+
+if count &gt;= limit:
+    reject
+
+INCR key</code></pre>
+
+        <h2>The flaw</h2>
+
+        <p><code>INCR</code> on a missing key doesn't fail. It recreates the key with value 1 and no expiry. And the only line that sets a TTL is the create branch, which by definition only runs when the key doesn't exist. So every increment that lands on a missing key mints a counter that will never expire.</p>
+
+        <p>Getting there takes a race: <code>GET</code> returns a value, the key expires, and the <code>INCR</code> arrives a moment later.</p>
+
+        <p>What you're left with is a counter that only ever goes up. It climbs by one per request, forever, and the moment it crosses the limit that user is rejected on that endpoint permanently.</p>
+
+        <h2>Finding it</h2>
+
+        <p>The audit is read-only and pleasantly boring: <code>SCAN</code> the key prefix, pipeline a <code>TTL</code> for each key, count the ones that come back <code>-1</code>. That's Redis for "this key exists and has no expiry", as distinct from <code>-2</code>, which means it doesn't exist.</p>
+
+        <h2>The fix</h2>
+
+        <p>Make the increment and the expiry one atomic unit, and use the increment's return value instead of a separate read:</p>
+
+        <pre><code>MULTI
+INCR   key
+EXPIRE key &lt;window&gt; NX
+EXEC</code></pre>
+
+        <p><a href="https://redis.io/docs/latest/commands/expire/" target="_blank" rel="noopener noreferrer"><code>EXPIRE ... NX</code></a> sets the expiry only if the key currently has none. One flag, three useful behaviours:</p>
+
+        <ul>
+          <li>Key was just created by the <code>INCR</code>, so it has no TTL, so it gets the window.</li>
+          <li>Key is mid-window and already has a TTL, so this is a no-op. Traffic doesn't extend the window, which is what keeps this a fixed window rather than an accidental sliding one.</li>
+          <li>Key already lost its expiry, so it gets one back.</li>
+        </ul>
+
+        <p>That third case is the nice part. The deploy repairs leaked keys as they're touched. Anything still in active use heals itself the next time someone hits the endpoint, and there's no migration to write for it.</p>
+
+        <h2>Two write paths, one TTL</h2>
+
+        <p>The bug needs two things: a key that's meant to expire, and more than one path that can create it, where at least one of those paths doesn't set the expiry. Plenty of Redis commands quietly create a key when it's missing, and <code>INCR</code> is one of them. I did not have that on the list of things <code>INCR</code> does.</p>
+
+        <p>So if a key is supposed to expire, every command that can create it has to set the expiry too, in the same atomic unit. <code>MULTI</code> for the atomicity, <code>NX</code> so that setting it doesn't clobber a window that's already running.</p>
+      </slot:content>
+    <%/ blog_post.html %>
+  </slot:body>
+<%/ layout.html %>
