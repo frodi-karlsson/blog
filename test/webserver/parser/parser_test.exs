@@ -219,4 +219,70 @@ defmodule Webserver.ParserTest do
       assert result == {:ok, ""}
     end
   end
+
+  describe "named slot extraction" do
+    test "two slots with identical content are each substituted in place" do
+      template = """
+      <% dup.html %>
+        <slot:first>same</slot:first>
+        <slot:second>same</slot:second>
+      <%/ dup.html %>
+      """
+
+      partials = %{"partials/dup.html" => "[{{first}}|{{second}}]"}
+
+      assert {:ok, html} =
+               Parser.parse(%ParseInput{
+                 file: template,
+                 template_dir: "/priv/templates",
+                 partials: partials
+               })
+
+      assert html =~ "[same|same]"
+    end
+
+    test "slots are substituted regardless of declaration order in the partial" do
+      template = """
+      <% ordered.html %>
+        <slot:a>AAA</slot:a>
+        <slot:b>BBB</slot:b>
+      <%/ ordered.html %>
+      """
+
+      partials = %{"partials/ordered.html" => "{{b}}-{{a}}"}
+
+      assert {:ok, html} =
+               Parser.parse(%ParseInput{
+                 file: template,
+                 template_dir: "/priv/templates",
+                 partials: partials
+               })
+
+      assert html =~ "BBB-AAA"
+    end
+
+    test "repeated slot names keep the first declaration" do
+      template =
+        "<% dupname.html %><slot:a>FIRST</slot:a><slot:a>SECOND</slot:a><%/ dupname.html %>"
+
+      assert {:ok, "[FIRST]"} =
+               Parser.parse(%ParseInput{
+                 file: template,
+                 template_dir: "/priv/templates",
+                 partials: %{"partials/dupname.html" => "[{{a}}]"}
+               })
+    end
+
+    test "slot markup nested inside another slot is passed through as text" do
+      template =
+        "<% nest.html %><slot:outer>before<slot:inner>x</slot:inner>after</slot:outer><%/ nest.html %>"
+
+      assert {:ok, "[before<slot:inner>x</slot:inner>after]"} =
+               Parser.parse(%ParseInput{
+                 file: template,
+                 template_dir: "/priv/templates",
+                 partials: %{"partials/nest.html" => "[{{outer}}]"}
+               })
+    end
+  end
 end

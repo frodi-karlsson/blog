@@ -155,7 +155,7 @@ defmodule Webserver.Parser do
 
   defp render_partial_with_slots_and_attrs(partial_name, partial, raw_content, attrs, parse_input) do
     case extract_named_slots(raw_content, parse_input) do
-      {:ok, _content, slot_map} ->
+      {:ok, slot_map} ->
         meta = partial_meta(partial_name, partial, parse_input)
         expected_slots = MapSet.to_list(meta.slots)
         slot_map = merge_metadata_slots(slot_map, expected_slots, parse_input.metadata)
@@ -266,22 +266,20 @@ defmodule Webserver.Parser do
 
   defp strip_wrapping_quotes(other), do: other
 
-  defp extract_named_slots(content, parse_input) do
-    case Regex.run(@named_slot_regex, content, return: :index) do
-      nil ->
-        {:ok, content, %{}}
-
-      [{slot_start, slot_len}, {name_start, name_len}, {content_start, content_len}] ->
+  defp extract_named_slots(content, parse_input) when is_binary(content) do
+    @named_slot_regex
+    |> Regex.scan(content, return: :index)
+    |> Enum.reduce_while({:ok, %{}}, fn
+      [_full, {name_start, name_len}, {inner_start, inner_len}], {:ok, slots} ->
         slot_name = binary_part(content, name_start, name_len)
-        slot_content = binary_part(content, content_start, content_len)
-        full_match = binary_part(content, slot_start, slot_len)
-        new_content = String.replace(content, full_match, "{{#{slot_name}}}", global: false)
+        slot_content = binary_part(content, inner_start, inner_len)
 
-        with {:ok, processed} <- render_tags(slot_content, parse_input),
-             {:ok, remaining, more_slots} <- extract_named_slots(new_content, parse_input) do
-          {:ok, remaining, Map.put(more_slots, slot_name, processed)}
+        case render_tags(slot_content, parse_input) do
+          # Earlier declarations win, matching the previous recursive extraction.
+          {:ok, processed} -> {:cont, {:ok, Map.put_new(slots, slot_name, processed)}}
+          {:error, _} = error -> {:halt, error}
         end
-    end
+    end)
   end
 
   defp validate_slots(expected, slot_map) do
