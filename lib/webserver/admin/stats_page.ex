@@ -11,6 +11,7 @@ defmodule Webserver.Admin.StatsPage do
   @spec render(map()) :: String.t()
   def render(snapshot) do
     {:ok, partials} = Store.get_partials()
+    {:ok, partial_meta} = Store.get_partial_meta()
     template_dir = Application.fetch_env!(:webserver, :template_dir)
 
     body = """
@@ -39,7 +40,8 @@ defmodule Webserver.Admin.StatsPage do
     case Parser.parse(%ParseInput{
            file: template,
            template_dir: template_dir,
-           partials: partials
+           partials: partials,
+           partial_meta: partial_meta
          }) do
       {:ok, html} -> html
       _ -> "<p>Stats unavailable.</p>"

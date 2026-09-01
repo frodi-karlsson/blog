@@ -3,7 +3,7 @@ defmodule Webserver.Parser do
   Parses the custom HTML templating language, returning fully rendered HTML.
   """
 
-  alias Webserver.Parser.{Img, ParseInput, Resolver, Tags}
+  alias Webserver.Parser.{Img, ParseInput, PartialMeta, Resolver, Tags}
 
   @type parse_error ::
           {:ref_not_found, String.t()}
@@ -140,19 +140,26 @@ defmodule Webserver.Parser do
 
     case Resolver.resolve_partial_reference(partial_name, parse_input) do
       partial when is_binary(partial) ->
-        render_partial_with_slots_and_attrs(partial, raw_content, attrs, parse_input)
+        render_partial_with_slots_and_attrs(
+          partial_name,
+          partial,
+          raw_content,
+          attrs,
+          parse_input
+        )
 
       nil ->
         {:error, {:ref_not_found, partial_name}}
     end
   end
 
-  defp render_partial_with_slots_and_attrs(partial, raw_content, attrs, parse_input) do
+  defp render_partial_with_slots_and_attrs(partial_name, partial, raw_content, attrs, parse_input) do
     case extract_named_slots(raw_content, parse_input) do
       {:ok, _content, slot_map} ->
-        expected_slots = extract_expected_slots(partial)
+        meta = partial_meta(partial_name, partial, parse_input)
+        expected_slots = MapSet.to_list(meta.slots)
         slot_map = merge_metadata_slots(slot_map, expected_slots, parse_input.metadata)
-        expected_attrs = extract_expected_attrs(partial)
+        expected_attrs = MapSet.to_list(meta.attrs)
 
         with :ok <- validate_slots(expected_slots, slot_map),
              :ok <- validate_attrs(expected_attrs, attrs) do
@@ -166,6 +173,15 @@ defmodule Webserver.Parser do
 
       error ->
         error
+    end
+  end
+
+  defp partial_meta(name, partial, parse_input) do
+    key = Path.join("partials", name)
+
+    case Map.fetch(parse_input.partial_meta, key) do
+      {:ok, %PartialMeta{} = meta} -> meta
+      :error -> PartialMeta.build(partial)
     end
   end
 
@@ -266,20 +282,6 @@ defmodule Webserver.Parser do
           {:ok, remaining, Map.put(more_slots, slot_name, processed)}
         end
     end
-  end
-
-  defp extract_expected_slots(partial) do
-    @slot_placeholder_regex
-    |> Regex.scan(partial)
-    |> Enum.map(fn [_, name] -> name end)
-    |> Enum.uniq()
-  end
-
-  defp extract_expected_attrs(partial) do
-    @attr_placeholder_regex
-    |> Regex.scan(partial)
-    |> Enum.map(fn [_, name] -> name end)
-    |> Enum.uniq()
   end
 
   defp validate_slots(expected, slot_map) do

@@ -10,6 +10,7 @@ defmodule Webserver.Content.Builder do
 
   alias Webserver.Content.Generator
   alias Webserver.Content.PageEntry
+  alias Webserver.Parser.PartialMeta
 
   @blog_key "partials/generated_blog_items.html"
   @livereload_key "partials/generated_livereload_script.html"
@@ -24,17 +25,19 @@ defmodule Webserver.Content.Builder do
   def build(state) do
     livereload = Generator.generate_livereload_partial(state.live_reload?)
     partials = Map.put(state.partials, @livereload_key, livereload)
+    partial_meta = PartialMeta.build_all(partials)
 
     pages_meta = Generator.scan_pages(state)
 
-    blog_index = Generator.generate_blog_index(pages_meta, state, partials)
+    blog_index = Generator.generate_blog_index(pages_meta, state, partials, partial_meta)
     partials = Map.put(partials, @blog_key, blog_index)
+    partial_meta = Map.put(partial_meta, @blog_key, PartialMeta.build(blog_index))
 
     posts = Generator.build_posts_db(pages_meta)
     registry = Generator.generate_page_registry(pages_meta)
 
-    tags_index = Generator.generate_tags_index_page(posts, state, partials)
-    tag_pages = Generator.generate_tag_pages(posts, state, partials)
+    tags_index = Generator.generate_tags_index_page(posts, state, partials, partial_meta)
+    tag_pages = Generator.generate_tag_pages(posts, state, partials, partial_meta)
 
     tag_page_rows =
       Enum.map(tag_pages, fn {tag, html} ->
@@ -44,6 +47,7 @@ defmodule Webserver.Content.Builder do
     rows =
       [
         {:partials, partials},
+        {:partial_meta, partial_meta},
         {:posts_db, posts},
         {:page_registry, registry},
         {:page_path_set, page_path_set(registry)},

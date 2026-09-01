@@ -44,13 +44,13 @@ defmodule Webserver.Content.Generator do
     end
   end
 
-  @spec generate_blog_index([{String.t(), map()}], map(), map()) :: String.t()
-  def generate_blog_index(pages_meta, state, partials) do
+  @spec generate_blog_index([{String.t(), map()}], map(), map(), map()) :: String.t()
+  def generate_blog_index(pages_meta, state, partials, partial_meta) do
     pages_meta
     |> Enum.filter(fn {_filename, meta} -> FrontMatter.blog_post?(meta) end)
     |> Enum.sort_by(fn {_filename, meta} -> meta["date"] end, :desc)
     |> Enum.map_join("\n", fn {filename, meta} ->
-      BlogItemRenderer.render(filename, meta, state.template_dir, partials)
+      BlogItemRenderer.render(filename, meta, state.template_dir, partials, partial_meta)
     end)
   end
 
@@ -111,8 +111,8 @@ defmodule Webserver.Content.Generator do
     end
   end
 
-  @spec generate_tags_index_page([Post.t()], map(), map()) :: String.t()
-  def generate_tags_index_page(posts, state, partials) do
+  @spec generate_tags_index_page([Post.t()], map(), map(), map()) :: String.t()
+  def generate_tags_index_page(posts, state, partials, partial_meta) do
     tags_with_counts =
       posts
       |> Enum.flat_map(& &1.tags)
@@ -143,7 +143,8 @@ defmodule Webserver.Content.Generator do
     input = %ParseInput{
       file: page_template,
       template_dir: state.template_dir,
-      partials: partials
+      partials: partials,
+      partial_meta: partial_meta
     }
 
     case Parser.parse(input) do
@@ -156,22 +157,28 @@ defmodule Webserver.Content.Generator do
     end
   end
 
-  @spec generate_tag_pages([Post.t()], map(), map()) :: %{String.t() => String.t()}
-  def generate_tag_pages(posts, state, partials) do
+  @spec generate_tag_pages([Post.t()], map(), map(), map()) :: %{String.t() => String.t()}
+  def generate_tag_pages(posts, state, partials, partial_meta) do
     posts
     |> Enum.flat_map(& &1.tags)
     |> Enum.uniq()
     |> Map.new(fn tag ->
-      {tag, generate_tag_page(tag, posts, state, partials)}
+      {tag, generate_tag_page(tag, posts, state, partials, partial_meta)}
     end)
   end
 
-  defp generate_tag_page(tag, all_posts, state, partials) do
+  defp generate_tag_page(tag, all_posts, state, partials, partial_meta) do
     matching = Enum.filter(all_posts, fn post -> tag in post.tags end)
 
     items =
       Enum.map_join(matching, "\n", fn post ->
-        BlogItemRenderer.render(post.filename, Post.to_meta(post), state.template_dir, partials)
+        BlogItemRenderer.render(
+          post.filename,
+          Post.to_meta(post),
+          state.template_dir,
+          partials,
+          partial_meta
+        )
       end)
 
     escaped_tag = Plug.HTML.html_escape(tag)
@@ -194,7 +201,8 @@ defmodule Webserver.Content.Generator do
     input = %ParseInput{
       file: page_template,
       template_dir: state.template_dir,
-      partials: partials
+      partials: partials,
+      partial_meta: partial_meta
     }
 
     case Parser.parse(input) do

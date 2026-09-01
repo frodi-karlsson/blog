@@ -86,6 +86,14 @@ defmodule Webserver.Content.Store do
     end
   end
 
+  @spec get_partial_meta(atom() | pid()) :: {:ok, map()}
+  def get_partial_meta(server \\ __MODULE__) do
+    case :ets.lookup(table_for(server), :partial_meta) do
+      [{:partial_meta, meta}] -> {:ok, meta}
+      _ -> {:ok, %{}}
+    end
+  end
+
   defp handle_maybe_stale(table, server, path, %PageEntry{} = entry) do
     interval = Config.check_interval(table)
     now = System.system_time(:millisecond)
@@ -122,10 +130,11 @@ defmodule Webserver.Content.Store do
   defp fetch_and_cache(table, path) do
     config = Config.get(table)
     {:ok, partials} = get_partials(table)
+    {:ok, partial_meta} = get_partial_meta(table)
 
     with {:ok, content} <- config.reader.read_page(config.template_dir, path),
          {meta, body} = FrontMatter.parse(content),
-         {:ok, parsed} <- parse_page(body, meta, config.template_dir, partials) do
+         {:ok, parsed} <- parse_page(body, meta, config.template_dir, partials, partial_meta) do
       entry = %PageEntry{
         parsed: parsed,
         mtime: config.reader.file_mtime(config.template_dir, "pages/#{path}"),
@@ -244,9 +253,12 @@ defmodule Webserver.Content.Store do
   end
 
   defp revalidate_changed_file(path, new_mtime, checked_at, state) do
+    {:ok, partial_meta} = get_partial_meta(state.table)
+
     with {:ok, content} <- state.reader.read_page(state.template_dir, path),
          {meta, body} = FrontMatter.parse(content),
-         {:ok, parsed} <- parse_page(body, meta, state.template_dir, state.partials) do
+         {:ok, parsed} <-
+           parse_page(body, meta, state.template_dir, state.partials, partial_meta) do
       telemetry_execute([:cache, :revalidate], %{count: 1}, %{path: path, reason: :mtime_changed})
       safe_update_counter(state.table, :stats_revalidations)
 
@@ -337,11 +349,12 @@ defmodule Webserver.Content.Store do
   # state's template_dir/partials; a caller-side miss passes the config and the
   # published `:partials` row. Taking the two values explicitly, rather than a
   # state map, is what lets both share this.
-  defp parse_page(body, meta, template_dir, partials) do
+  defp parse_page(body, meta, template_dir, partials, partial_meta) do
     Parser.parse(%ParseInput{
       file: body,
       template_dir: template_dir,
       partials: partials,
+      partial_meta: partial_meta,
       metadata: enrich_metadata(meta, partials)
     })
   end

@@ -260,6 +260,40 @@ defmodule Webserver.Content.StoreTest do
     end
   end
 
+  describe "get_partial_meta" do
+    setup do: {:ok, name: start_cache()}
+
+    test "reads partial meta without a GenServer round trip", %{name: name} do
+      pid = GenServer.whereis(name)
+      :sys.suspend(pid)
+
+      try do
+        assert {:ok, meta} = Store.get_partial_meta(name)
+        assert is_map(meta)
+        assert Map.has_key?(meta, "partials/layout.html")
+      after
+        :sys.resume(pid)
+      end
+    end
+
+    test "has an entry for every partial, so the parser's lookup always hits", %{name: name} do
+      {:ok, partials} = Store.get_partials(name)
+      {:ok, partial_meta} = Store.get_partial_meta(name)
+
+      assert Map.keys(partial_meta) |> Enum.sort() == Map.keys(partials) |> Enum.sort()
+    end
+
+    test "layout.html's meta reflects the slots it actually declares", %{name: name} do
+      {:ok, partials} = Store.get_partials(name)
+      {:ok, partial_meta} = Store.get_partial_meta(name)
+
+      alias Webserver.Parser.PartialMeta
+      expected = PartialMeta.build(Map.fetch!(partials, "partials/layout.html"))
+
+      assert partial_meta["partials/layout.html"] == expected
+    end
+  end
+
   describe "tags landing page" do
     setup do: {:ok, name: start_cache()}
 

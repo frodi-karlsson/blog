@@ -119,6 +119,7 @@ defmodule Webserver.Server do
       |> String.replace("{", "&#123;")
 
     {:ok, partials} = Store.get_partials()
+    {:ok, partial_meta} = Store.get_partial_meta()
     template_dir = Application.fetch_env!(:webserver, :template_dir)
 
     items =
@@ -128,7 +129,13 @@ defmodule Webserver.Server do
 
         _ ->
           Enum.map_join(posts, "\n", fn post ->
-            BlogItemRenderer.render(post.filename, Post.to_meta(post), template_dir, partials)
+            BlogItemRenderer.render(
+              post.filename,
+              Post.to_meta(post),
+              template_dir,
+              partials,
+              partial_meta
+            )
           end)
       end
 
@@ -153,7 +160,8 @@ defmodule Webserver.Server do
     input = %Webserver.Parser.ParseInput{
       file: page_template,
       template_dir: template_dir,
-      partials: partials
+      partials: partials,
+      partial_meta: partial_meta
     }
 
     case Webserver.Parser.parse(input) do
