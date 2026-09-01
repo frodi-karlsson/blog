@@ -67,7 +67,10 @@ defmodule Webserver.Content.Store do
 
   @spec get_partials(atom() | pid()) :: {:ok, map()}
   def get_partials(server \\ __MODULE__) do
-    GenServer.call(server, :get_partials)
+    case :ets.lookup(table_for(server), :partials) do
+      [{:partials, partials}] -> {:ok, partials}
+      _ -> {:ok, %{}}
+    end
   end
 
   defp handle_maybe_stale(table, server, path, %PageEntry{} = entry) do
@@ -175,10 +178,6 @@ defmodule Webserver.Content.Store do
     {:reply, stats(state.table), state}
   end
 
-  def handle_call(:get_partials, _from, state) do
-    {:reply, {:ok, state.partials}, state}
-  end
-
   @impl true
   def handle_call(:force_refresh, _from, state) do
     :ets.match_delete(state.table, {{:page, :_}, :_})
@@ -226,10 +225,6 @@ defmodule Webserver.Content.Store do
   defp load_and_generate_all(state) do
     case state.reader.get_partials(state.template_dir) do
       {:ok, partials} ->
-        Enum.each(partials, fn {key, content} ->
-          :ets.insert(state.table, {{:partial, key}, content})
-        end)
-
         {:ok, do_generate_content(%{state | partials: partials})}
 
       {:error, reason} ->

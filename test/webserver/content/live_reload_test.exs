@@ -59,7 +59,7 @@ defmodule Webserver.Content.LiveReloadTest do
 
     MutableSandbox.put_page("post-c.html", seed_page("C", date: "2026-06-01", tags: "gamma"))
     GenServer.cast(name, :refresh_content)
-    _ = GenServer.call(name, :get_partials)
+    _ = GenServer.call(name, :stats)
 
     posts = Query.posts_by_tag(name, "gamma")
     assert Enum.map(posts, & &1.id) == ["post-c"]
@@ -71,7 +71,7 @@ defmodule Webserver.Content.LiveReloadTest do
 
     MutableSandbox.put_page("post-a.html", seed_page("A", date: "2026-05-01", tags: "delta"))
     GenServer.cast(name, :refresh_content)
-    _ = GenServer.call(name, :get_partials)
+    _ = GenServer.call(name, :stats)
 
     assert Query.posts_by_tag(name, "alpha") == []
     assert Query.posts_by_tag(name, "delta") |> Enum.map(& &1.id) == ["post-a"]
@@ -85,7 +85,7 @@ defmodule Webserver.Content.LiveReloadTest do
 
     MutableSandbox.delete_page("post-b.html")
     GenServer.cast(name, :refresh_content)
-    _ = GenServer.call(name, :get_partials)
+    _ = GenServer.call(name, :stats)
 
     assert Query.posts_by_tag(name, "beta") == []
     assert {:error, :not_found} = Store.get_page(name, "tags/beta.html")

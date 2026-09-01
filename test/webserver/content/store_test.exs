@@ -126,10 +126,8 @@ defmodule Webserver.Content.StoreTest do
     end
 
     test "should refresh blog index and page registry together", %{name: name} do
-      assert [{_, content}] =
-               :ets.lookup(name, {:partial, "partials/generated_blog_items.html"})
-
-      assert is_binary(content)
+      assert [{:partials, partials}] = :ets.lookup(name, :partials)
+      assert Map.has_key?(partials, "partials/generated_blog_items.html")
 
       assert [{_, pages}] = :ets.lookup(name, :page_registry)
       assert is_list(pages)
@@ -137,8 +135,35 @@ defmodule Webserver.Content.StoreTest do
       GenServer.cast(name, :refresh_content)
       _ = GenServer.call(name, :stats)
 
-      assert [{_, _}] = :ets.lookup(name, {:partial, "partials/generated_blog_items.html"})
+      assert [{:partials, partials}] = :ets.lookup(name, :partials)
+      assert Map.has_key?(partials, "partials/generated_blog_items.html")
       assert [{_, ^pages}] = :ets.lookup(name, :page_registry)
+    end
+  end
+
+  describe "get_partials" do
+    setup do: {:ok, name: start_cache()}
+
+    test "reads partials without a GenServer round trip", %{name: name} do
+      # Suspending the GenServer proves the read never touches it: if
+      # get_partials/1 still went through the process, this would time out.
+      pid = GenServer.whereis(name)
+      :sys.suspend(pid)
+
+      try do
+        assert {:ok, partials} = Store.get_partials(name)
+        assert is_map(partials)
+        assert Map.has_key?(partials, "partials/layout.html")
+        assert Map.has_key?(partials, "partials/generated_blog_items.html")
+      after
+        :sys.resume(pid)
+      end
+    end
+
+    test "publishes the partials map as a single ETS row", %{name: name} do
+      assert [{:partials, partials}] = :ets.lookup(name, :partials)
+      assert is_map(partials)
+      assert Map.has_key?(partials, "partials/generated_blog_items.html")
     end
   end
 

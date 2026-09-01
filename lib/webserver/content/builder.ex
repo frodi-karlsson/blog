@@ -43,8 +43,7 @@ defmodule Webserver.Content.Builder do
 
     rows =
       [
-        {{:partial, @livereload_key}, livereload},
-        {{:partial, @blog_key}, blog_index},
+        {:partials, partials},
         {:posts_db, posts},
         {:page_registry, registry},
         {:page_path_set, page_path_set(registry)},
