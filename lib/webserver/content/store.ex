@@ -2,6 +2,15 @@ defmodule Webserver.Content.Store do
   @moduledoc """
   A concurrent cache for parsed templates using ETS for fast reads and a GenServer
   for serialized writes and revalidations.
+
+  ## Revalidation counters
+
+    * `revalidations` -- checks that found a changed file and rewrote the content
+    * `revalidation_errors` -- checks that found a changed file but failed to read
+      or parse it
+
+  A check that finds the mtime unchanged is counted in neither, so the sum of the
+  two is "files that changed", not "checks performed".
   """
 
   use GenServer
@@ -77,13 +86,18 @@ defmodule Webserver.Content.Store do
     interval = Config.check_interval(table)
     now = System.system_time(:millisecond)
 
-    if interval == 0 or now - entry.last_checked_at >= interval do
+    stale? = interval == 0 or now - entry.last_checked_at >= interval
+
+    # Generated pages (tags index, per-tag pages) have no file behind them --
+    # they are rebuilt by :refresh_content, not by mtime -- so there is nothing
+    # for revalidation to check.
+    if stale? and entry.mtime != :generated do
       telemetry_execute([:cache, :hit], %{count: 1}, %{path: path, status: :stale})
       safe_update_counter(table, :stats_hits)
 
-      new_entry = %PageEntry{entry | last_checked_at: now}
-      :ets.insert(table, {{:page, path}, new_entry})
-
+      # last_checked_at is advanced by the revalidation itself, and only when the
+      # check actually completes. Advancing it here would hide a failing page for
+      # a full interval.
       if :ets.insert_new(table, {{:revalidate_in_flight, path}, true}) do
         GenServer.cast(server, {:revalidate_async, path, now})
       end
@@ -192,6 +206,8 @@ defmodule Webserver.Content.Store do
     end
   end
 
+  # Safety net only: handle_maybe_stale/4 no longer schedules generated pages,
+  # but a cast issued before a deploy can still be sitting in the mailbox.
   defp do_revalidate_async(_path, %PageEntry{mtime: :generated}, _checked_at, state) do
     {:noreply, state}
   end
@@ -199,27 +215,47 @@ defmodule Webserver.Content.Store do
   defp do_revalidate_async(path, %PageEntry{} = entry, checked_at, state) do
     new_mtime = mtime_for_file(state, "pages/#{path}")
 
-    if new_mtime != entry.mtime do
-      telemetry_execute([:cache, :revalidate], %{count: 1}, %{path: path, reason: :mtime_changed})
-      safe_update_counter(state.table, :stats_revalidations)
-
-      with {:ok, content} <- state.reader.read_page(state.template_dir, path),
-           {meta, body} <- FrontMatter.parse(content),
-           {:ok, parsed} <- parse_page(body, meta, state) do
-        new_entry = %PageEntry{parsed: parsed, mtime: new_mtime, last_checked_at: checked_at}
-        :ets.insert(state.table, {{:page, path}, new_entry})
-      else
-        {:error, reason} ->
-          safe_update_counter(state.table, :stats_revalidation_errors)
-          Logger.warning(%{event: "page_revalidate_failed", path: path, reason: reason})
-
-        other ->
-          safe_update_counter(state.table, :stats_revalidation_errors)
-          Logger.warning(%{event: "page_revalidate_failed", path: path, reason: other})
-      end
+    if new_mtime == entry.mtime do
+      # The check completed and found nothing to do. That is still a completed
+      # check, so the timestamp advances -- otherwise nothing ever would for an
+      # unchanged page, and every later request would cast again.
+      :ets.insert(state.table, {{:page, path}, %PageEntry{entry | last_checked_at: checked_at}})
+    else
+      revalidate_changed_file(path, new_mtime, checked_at, state)
     end
 
     {:noreply, state}
+  end
+
+  defp revalidate_changed_file(path, new_mtime, checked_at, state) do
+    with {:ok, content} <- state.reader.read_page(state.template_dir, path),
+         {meta, body} <- FrontMatter.parse(content),
+         {:ok, parsed} <- parse_page(body, meta, state) do
+      telemetry_execute([:cache, :revalidate], %{count: 1}, %{path: path, reason: :mtime_changed})
+      safe_update_counter(state.table, :stats_revalidations)
+
+      new_entry = %PageEntry{parsed: parsed, mtime: new_mtime, last_checked_at: checked_at}
+      :ets.insert(state.table, {{:page, path}, new_entry})
+    else
+      {:error, reason} -> revalidate_failed(path, reason, state)
+      other -> revalidate_failed(path, other, state)
+    end
+  end
+
+  # No ETS write, deliberately: not advancing last_checked_at means the page is
+  # retried on the next request, instead of serving stale content for a full
+  # interval with nothing but a counter to show for it.
+  #
+  # The consequence, accepted knowingly: a persistently broken page is re-read
+  # and re-parsed once per request, not once per interval. The in-flight marker
+  # bounds that to one attempt at a time so it cannot pile up, and requests keep
+  # returning the cached content immediately, so the cost is background work
+  # rather than latency. In exchange, a fixed page heals on the very next
+  # request instead of up to an interval later. Interval-spaced retry would need
+  # a separate last_failed_at field or a backoff; not worth it at this size.
+  defp revalidate_failed(path, reason, state) do
+    safe_update_counter(state.table, :stats_revalidation_errors)
+    Logger.warning(%{event: "page_revalidate_failed", path: path, reason: reason})
   end
 
   defp load_and_generate_all(state) do

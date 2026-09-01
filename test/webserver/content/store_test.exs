@@ -2,6 +2,7 @@ defmodule Webserver.Content.StoreTest do
   use ExUnit.Case, async: true
 
   alias Webserver.Content.Store
+  alias Webserver.Content.TemplateReader.MutableSandbox
   alias Webserver.Content.TemplateReader.Sandbox
 
   defp start_cache(opts \\ []) do
@@ -214,5 +215,125 @@ defmodule Webserver.Content.StoreTest do
       {:ok, html} = Store.get_page(name, "tags/anabranch.html")
       assert html =~ ~s|href="/tags"|
     end
+  end
+
+  describe "revalidation timestamp semantics" do
+    setup do
+      {:ok, _} = MutableSandbox.start_link(%{"index.html" => mutable_index_page()})
+
+      on_exit(fn ->
+        try do
+          MutableSandbox.stop()
+        catch
+          :exit, _ -> :ok
+        end
+      end)
+
+      :ok
+    end
+
+    test "a failed revalidation does not advance last_checked_at" do
+      name = start_cache(reader: MutableSandbox, interval: 0)
+
+      {:ok, _} = Store.get_page(name, "index.html")
+      [{_, before_entry}] = :ets.lookup(name, {:page, "index.html"})
+
+      # Make the page unparseable. put_page/2 also bumps the mtime, so
+      # revalidation will attempt a reparse and fail.
+      MutableSandbox.put_page("index.html", "<% nonexistent_partial.html %/>")
+
+      # Pin last_checked_at to a value the clock can never produce, so the
+      # assertion below cannot pass by accident on a millisecond clock that
+      # simply has not ticked between the two requests.
+      :ets.insert(name, {{:page, "index.html"}, %{before_entry | last_checked_at: 0}})
+      before_entry = %{before_entry | last_checked_at: 0}
+
+      {:ok, _} = Store.get_page(name, "index.html")
+      Process.sleep(50)
+
+      [{_, after_entry}] = :ets.lookup(name, {:page, "index.html"})
+
+      assert after_entry.last_checked_at == before_entry.last_checked_at,
+             "a failed revalidation must not advance last_checked_at, or the page waits a full interval to retry"
+
+      assert after_entry.parsed == before_entry.parsed, "content must stay as it was"
+      assert Store.stats(name).revalidation_errors >= 1
+    end
+
+    test "a successful revalidation updates content and advances last_checked_at" do
+      name = start_cache(reader: MutableSandbox, interval: 0)
+
+      {:ok, first} = Store.get_page(name, "index.html")
+      [{_, before_entry}] = :ets.lookup(name, {:page, "index.html"})
+
+      MutableSandbox.put_page("index.html", "<p>rewritten</p>")
+
+      {:ok, _} = Store.get_page(name, "index.html")
+      Process.sleep(50)
+
+      [{_, after_entry}] = :ets.lookup(name, {:page, "index.html"})
+
+      assert after_entry.parsed =~ "rewritten"
+      assert after_entry.parsed != first
+      assert after_entry.last_checked_at >= before_entry.last_checked_at
+      assert Store.stats(name).revalidations >= 1
+    end
+
+    test "an unchanged page advances last_checked_at without rewriting content" do
+      name = start_cache(interval: 60_000)
+
+      {:ok, _} = Store.get_page(name, "index.html")
+      [{_, first}] = :ets.lookup(name, {:page, "index.html"})
+
+      # Force the entry to look stale.
+      :ets.insert(name, {{:page, "index.html"}, %{first | last_checked_at: 0}})
+
+      {:ok, _} = Store.get_page(name, "index.html")
+      Process.sleep(50)
+
+      [{_, second}] = :ets.lookup(name, {:page, "index.html"})
+
+      assert second.last_checked_at > 0,
+             "an unchanged page must advance last_checked_at, or every request re-triggers revalidation"
+
+      assert second.parsed == first.parsed
+    end
+
+    test "generated pages never schedule revalidation" do
+      name = start_cache(interval: 0)
+
+      # The in-flight marker is cleared by handle_cast's `after` clause, so a
+      # running server would erase the evidence either way. Suspending it
+      # freezes the mailbox: if a cast were scheduled, the marker that guards
+      # it would still be sitting in the table.
+      pid = GenServer.whereis(name)
+      :sys.suspend(pid)
+
+      try do
+        {:ok, _} = Store.get_page(name, "tags/index.html")
+
+        assert :ets.lookup(name, {:revalidate_in_flight, "tags/index.html"}) == [],
+               "a generated page has no file behind it, so it must not schedule revalidation"
+      after
+        :sys.resume(pid)
+      end
+
+      assert Store.stats(name).revalidations == 0
+    end
+  end
+
+  defp mutable_index_page do
+    """
+    ---
+    title: Home
+    ---
+    <% layout.html %>
+      <slot:title>Home</slot:title>
+      <slot:description>d</slot:description>
+      <slot:canonical></slot:canonical>
+      <slot:og_type>website</slot:og_type>
+      <slot:body><h1>Home</h1></slot:body>
+    <%/ layout.html %>
+    """
   end
 end
