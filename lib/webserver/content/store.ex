@@ -1,7 +1,11 @@
 defmodule Webserver.Content.Store do
   @moduledoc """
-  A concurrent cache for parsed templates using ETS for fast reads and a GenServer
-  for serialized writes and revalidations.
+  A concurrent cache for parsed templates using ETS for fast reads.
+
+  Reads and cache misses are handled entirely in the calling process: a miss
+  reads and parses the page itself and writes the result to ETS. The GenServer
+  owns only content *generation* (the blog index, tag pages, partials) and
+  background revalidation, both of which benefit from being serialized.
 
   ## Revalidation counters
 
@@ -50,7 +54,7 @@ defmodule Webserver.Content.Store do
       [] ->
         telemetry_execute([:cache, :miss], %{count: 1}, %{path: path})
         safe_update_counter(table, :stats_misses)
-        GenServer.call(server, {:fetch_and_cache, path})
+        fetch_and_cache(table, path)
     end
   end
 
@@ -107,6 +111,29 @@ defmodule Webserver.Content.Store do
       telemetry_execute([:cache, :hit], %{count: 1}, %{path: path})
       safe_update_counter(table, :stats_hits)
       {:ok, entry.parsed}
+    end
+  end
+
+  # Runs in the calling process, so concurrent misses no longer queue behind one
+  # another. Two callers missing the same path may both parse it; the writes are
+  # idempotent and last-write-wins, and parsing is deterministic given the same
+  # inputs, so both produce identical HTML. That is cheaper to reason about than a
+  # lock, and a herd on a cold path is rare.
+  defp fetch_and_cache(table, path) do
+    config = Config.get(table)
+    {:ok, partials} = get_partials(table)
+
+    with {:ok, content} <- config.reader.read_page(config.template_dir, path),
+         {meta, body} = FrontMatter.parse(content),
+         {:ok, parsed} <- parse_page(body, meta, config.template_dir, partials) do
+      entry = %PageEntry{
+        parsed: parsed,
+        mtime: config.reader.file_mtime(config.template_dir, "pages/#{path}"),
+        last_checked_at: System.system_time(:millisecond)
+      }
+
+      :ets.insert(table, {{:page, path}, entry})
+      {:ok, parsed}
     end
   end
 
@@ -177,17 +204,6 @@ defmodule Webserver.Content.Store do
   end
 
   @impl true
-  def handle_call({:fetch_and_cache, path}, _from, state) do
-    case :ets.lookup(state.table, {:page, path}) do
-      [{_, %PageEntry{parsed: parsed}}] ->
-        safe_update_counter(state.table, :stats_hits)
-        {:reply, {:ok, parsed}, state}
-
-      [] ->
-        do_fetch_and_cache(path, state)
-    end
-  end
-
   def handle_call(:stats, _from, state) do
     {:reply, stats(state.table), state}
   end
@@ -229,8 +245,8 @@ defmodule Webserver.Content.Store do
 
   defp revalidate_changed_file(path, new_mtime, checked_at, state) do
     with {:ok, content} <- state.reader.read_page(state.template_dir, path),
-         {meta, body} <- FrontMatter.parse(content),
-         {:ok, parsed} <- parse_page(body, meta, state) do
+         {meta, body} = FrontMatter.parse(content),
+         {:ok, parsed} <- parse_page(body, meta, state.template_dir, state.partials) do
       telemetry_execute([:cache, :revalidate], %{count: 1}, %{path: path, reason: :mtime_changed})
       safe_update_counter(state.table, :stats_revalidations)
 
@@ -268,29 +284,6 @@ defmodule Webserver.Content.Store do
     end
   end
 
-  defp do_fetch_and_cache(path, state) do
-    now = System.system_time(:millisecond)
-
-    case state.reader.read_page(state.template_dir, path) do
-      {:ok, content} ->
-        {meta, body} = FrontMatter.parse(content)
-
-        case parse_page(body, meta, state) do
-          {:ok, parsed} ->
-            mtime = mtime_for_file(state, "pages/#{path}")
-            entry = %PageEntry{parsed: parsed, mtime: mtime, last_checked_at: now}
-            :ets.insert(state.table, {{:page, path}, entry})
-            {:reply, {:ok, parsed}, state}
-
-          {:error, reason} ->
-            {:reply, {:error, reason}, state}
-        end
-
-      {:error, reason} ->
-        {:reply, {:error, reason}, state}
-    end
-  end
-
   defp do_generate_content(state) do
     %{rows: rows, partials: partials, tag_page_filenames: filenames} = Builder.build(state)
 
@@ -301,7 +294,31 @@ defmodule Webserver.Content.Store do
     Enum.each(rows, &:ets.insert(state.table, &1))
     :ets.insert(state.table, {:generated_tag_pages, filenames})
 
+    # Any page cached against a previous partials generation is now wrong, and its
+    # file mtime is unchanged so revalidation would never correct it. Generated
+    # pages were just written above, so only file-backed entries are dropped.
+    evict_file_backed_pages(state.table)
+
     %{state | partials: partials}
+  end
+
+  # Narrows, but does not close, the window: cache misses read the `:partials`
+  # row in the calling process, so a caller that read the old row and parsed
+  # against it can still insert *after* this eviction and land a stale entry.
+  # What remains is a single ETS insert wide rather than a full disk re-read plus
+  # regeneration. Closing it properly means stamping each PageEntry with the
+  # partials generation it parsed against and evicting stale stamps; that is a
+  # bigger change than this one.
+  #
+  # Filtered in Elixir rather than by match spec on purpose: ETS match specs
+  # cannot pattern-match inside a struct, so `entry.mtime != :generated` is not
+  # expressible as a guard here.
+  defp evict_file_backed_pages(table) do
+    table
+    |> :ets.select([{{{:page, :"$1"}, :"$2"}, [], [{{:"$1", :"$2"}}]}])
+    |> Enum.each(fn {path, entry} ->
+      if entry.mtime != :generated, do: :ets.delete(table, {:page, path})
+    end)
   end
 
   defp prune_stale_tag_pages(table, current_filenames) do
@@ -316,12 +333,16 @@ defmodule Webserver.Content.Store do
     |> Enum.each(&:ets.delete(table, {:page, &1}))
   end
 
-  defp parse_page(content, meta, state) do
+  # The single parse entry point. The GenServer revalidation path passes its own
+  # state's template_dir/partials; a caller-side miss passes the config and the
+  # published `:partials` row. Taking the two values explicitly, rather than a
+  # state map, is what lets both share this.
+  defp parse_page(body, meta, template_dir, partials) do
     Parser.parse(%ParseInput{
-      file: content,
-      template_dir: state.template_dir,
-      partials: state.partials,
-      metadata: enrich_metadata(meta, state.partials)
+      file: body,
+      template_dir: template_dir,
+      partials: partials,
+      metadata: enrich_metadata(meta, partials)
     })
   end
 

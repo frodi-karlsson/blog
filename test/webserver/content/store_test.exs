@@ -53,6 +53,58 @@ defmodule Webserver.Content.StoreTest do
     end
   end
 
+  describe "cache miss path" do
+    test "a miss is served without a GenServer round trip" do
+      name = start_cache()
+
+      # Evict so the next read is a genuine miss.
+      :ets.delete(name, {:page, "index.html"})
+
+      pid = GenServer.whereis(name)
+      :sys.suspend(pid)
+
+      try do
+        assert {:ok, html} = Store.get_page(name, "index.html")
+        assert html =~ "<html"
+      after
+        :sys.resume(pid)
+      end
+    end
+
+    test "a miss caches the parsed page for subsequent reads" do
+      name = start_cache()
+      :ets.delete(name, {:page, "index.html"})
+
+      {:ok, first} = Store.get_page(name, "index.html")
+      assert [{_, entry}] = :ets.lookup(name, {:page, "index.html"})
+      assert entry.parsed == first
+
+      {:ok, second} = Store.get_page(name, "index.html")
+      assert second == first
+    end
+
+    test "concurrent misses on the same path all return the same correct HTML" do
+      name = start_cache()
+      :ets.delete(name, {:page, "index.html"})
+
+      results =
+        1..20
+        |> Task.async_stream(fn _ -> Store.get_page(name, "index.html") end,
+          max_concurrency: 20,
+          timeout: 5000
+        )
+        |> Enum.map(fn {:ok, res} -> res end)
+
+      assert Enum.all?(results, &match?({:ok, _}, &1))
+      assert results |> Enum.map(fn {:ok, html} -> html end) |> Enum.uniq() |> length() == 1
+    end
+
+    test "a missing page still reports not_found" do
+      name = start_cache()
+      assert {:error, :not_found} = Store.get_page(name, "definitely-missing.html")
+    end
+  end
+
   describe "stats" do
     setup do: {:ok, name: start_cache()}
 
@@ -109,6 +161,46 @@ defmodule Webserver.Content.StoreTest do
       :ok = Store.force_refresh(name)
       {:ok, after_refresh} = Store.get_page(name, "index.html")
       assert before_refresh == after_refresh
+    end
+  end
+
+  describe "partials generation eviction" do
+    test "a page cached against an older partials generation does not survive a regeneration" do
+      name = start_cache()
+
+      {:ok, _} = Store.get_page(name, "index.html")
+
+      # Stand in for a page cached mid-refresh against the previous partials: a
+      # file-backed entry whose content predates the current partials row. Its
+      # mtime is unchanged, so revalidation would never correct it.
+      [{_, entry}] = :ets.lookup(name, {:page, "index.html"})
+      :ets.insert(name, {{:page, "index.html"}, %{entry | parsed: "<p>stale</p>"}})
+
+      # Driven through :refresh_content rather than force_refresh on purpose:
+      # force_refresh wipes every page row before regenerating, so it would
+      # remove this entry whether or not the post-generation eviction runs.
+      GenServer.cast(name, :refresh_content)
+      _ = GenServer.call(name, :stats)
+
+      case :ets.lookup(name, {:page, "index.html"}) do
+        [] -> :ok
+        [{_, refreshed}] -> refute refreshed.parsed == "<p>stale</p>"
+      end
+    end
+
+    test "generated pages are not evicted by a regeneration or a force_refresh" do
+      name = start_cache()
+
+      GenServer.cast(name, :refresh_content)
+      _ = GenServer.call(name, :stats)
+
+      assert [{_, entry}] = :ets.lookup(name, {:page, "tags/index.html"})
+      assert entry.mtime == :generated
+
+      assert :ok = Store.force_refresh(name)
+
+      assert [{_, _}] = :ets.lookup(name, {:page, "tags/index.html"}),
+             "generated pages have no file to re-read, so evicting them would 404 them"
     end
   end
 
