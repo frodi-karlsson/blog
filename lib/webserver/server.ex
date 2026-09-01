@@ -120,6 +120,7 @@ defmodule Webserver.Server do
 
     {:ok, partials} = Store.get_partials()
     {:ok, partial_meta} = Store.get_partial_meta()
+    {:ok, compiled_partials} = Store.get_compiled_partials()
     template_dir = Application.fetch_env!(:webserver, :template_dir)
 
     items =
@@ -134,7 +135,8 @@ defmodule Webserver.Server do
               Post.to_meta(post),
               template_dir,
               partials,
-              partial_meta
+              partial_meta,
+              compiled_partials
             )
           end)
       end
@@ -161,7 +163,8 @@ defmodule Webserver.Server do
       file: page_template,
       template_dir: template_dir,
       partials: partials,
-      partial_meta: partial_meta
+      partial_meta: partial_meta,
+      compiled_partials: compiled_partials
     }
 
     case Webserver.Parser.parse(input) do

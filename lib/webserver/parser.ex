@@ -3,7 +3,7 @@ defmodule Webserver.Parser do
   Parses the custom HTML templating language, returning fully rendered HTML.
   """
 
-  alias Webserver.Parser.{Img, ParseInput, PartialMeta, Resolver, Tags}
+  alias Webserver.Parser.{Compiler, Img, ParseInput, Resolver, Tags, Template}
 
   @type parse_error ::
           {:ref_not_found, String.t()}
@@ -19,8 +19,6 @@ defmodule Webserver.Parser do
   @type parse_result :: {:ok, String.t()} | {:error, parse_error()}
 
   @named_slot_regex ~r|<slot:([a-z_]+)>(.*?)</slot:\1>|s
-  @slot_placeholder_regex ~r|\{\{([a-z_]+)\}\}|
-  @attr_placeholder_regex ~r|\{\{@([a-zA-Z0-9_\-]+)\}\}|
   @asset_placeholder_regex ~r|\{\{\+\s*([^}]+?)\s*\}\}|
 
   @asset_tag_deprecation "asset tag is no longer supported; use {{+ /static/...}}"
@@ -138,37 +136,40 @@ defmodule Webserver.Parser do
   defp render_partial(name, raw_content, attrs, parse_input) do
     partial_name = String.trim(name)
 
-    case Resolver.resolve_partial_reference(partial_name, parse_input) do
-      partial when is_binary(partial) ->
-        render_partial_with_slots_and_attrs(
-          partial_name,
-          partial,
-          raw_content,
-          attrs,
-          parse_input
-        )
-
-      nil ->
-        {:error, {:ref_not_found, partial_name}}
+    with {:ok, %Template{} = template} <- fetch_template(partial_name, parse_input) do
+      render_template(template, raw_content, attrs, parse_input)
     end
   end
 
-  defp render_partial_with_slots_and_attrs(partial_name, partial, raw_content, attrs, parse_input) do
+  # Compiled templates are published at load time. A `ParseInput` built by hand
+  # (generators, tests) carries only the raw partial text, so compile on demand
+  # rather than making the compiled map mandatory.
+  defp fetch_template(name, parse_input) do
+    key = Resolver.partial_key(name)
+
+    case Map.fetch(parse_input.compiled_partials, key) do
+      {:ok, %Template{} = template} -> {:ok, template}
+      :error -> compile_partial(key, name, parse_input)
+    end
+  end
+
+  defp compile_partial(key, name, parse_input) do
+    case Map.fetch(parse_input.partials, key) do
+      {:ok, text} -> Compiler.compile(text)
+      :error -> {:error, {:ref_not_found, name}}
+    end
+  end
+
+  defp render_template(%Template{} = template, raw_content, attrs, parse_input) do
     case extract_named_slots(raw_content, parse_input) do
       {:ok, slot_map} ->
-        meta = partial_meta(partial_name, partial, parse_input)
-        expected_slots = MapSet.to_list(meta.slots)
+        expected_slots = MapSet.to_list(template.slots)
         slot_map = merge_metadata_slots(slot_map, expected_slots, parse_input.metadata)
-        expected_attrs = MapSet.to_list(meta.attrs)
+        expected_attrs = MapSet.to_list(template.attrs)
 
         with :ok <- validate_slots(expected_slots, slot_map),
              :ok <- validate_attrs(expected_attrs, attrs) do
-          rendered =
-            partial
-            |> replace_slots(slot_map, expected_slots)
-            |> replace_attrs(attrs, expected_attrs)
-
-          render_tags(rendered, parse_input)
+          render_segments(template.segments, slot_map, attrs, parse_input, [])
         end
 
       error ->
@@ -176,12 +177,38 @@ defmodule Webserver.Parser do
     end
   end
 
-  defp partial_meta(name, partial, parse_input) do
-    key = Path.join("partials", name)
+  defp render_segments([], _slot_map, _attrs, _parse_input, acc),
+    do: {:ok, IO.iodata_to_binary(acc)}
 
-    case Map.fetch(parse_input.partial_meta, key) do
-      {:ok, %PartialMeta{} = meta} -> meta
-      :error -> PartialMeta.build(partial)
+  defp render_segments([segment | rest], slot_map, attrs, parse_input, acc) do
+    with {:ok, rendered} <- render_segment(segment, slot_map, attrs, parse_input) do
+      render_segments(rest, slot_map, attrs, parse_input, [acc, rendered])
+    end
+  end
+
+  defp render_segment(literal, _slot_map, _attrs, _parse_input) when is_binary(literal),
+    do: {:ok, literal}
+
+  defp render_segment({:slot, name}, slot_map, _attrs, _parse_input),
+    do: {:ok, Map.fetch!(slot_map, name)}
+
+  defp render_segment({:attr, name}, _slot_map, attrs, _parse_input),
+    do: {:ok, Map.fetch!(attrs, name)}
+
+  # This is the invariant the old post-substitution `render_tags/2` call
+  # existed to preserve: a partial referenced from inside another partial
+  # (layout.html -> header_assets.html -> generated_livereload_script.html)
+  # is resolved here, structurally, instead of by re-tokenising spliced text.
+  defp render_segment({:partial, name, tag_attrs}, _slot_map, _attrs, parse_input),
+    do: render_self_tag(name, tag_attrs, parse_input)
+
+  # No shipped partial references another partial in open/close form, so the
+  # body is kept as text and rendered through the ordinary path.
+  defp render_segment({:partial_block, name, tag_attrs, body}, _slot_map, _attrs, parse_input) do
+    with {:ok, rendered_body, _rest} <- render_until(body, parse_input, nil, []) do
+      rendered_body
+      |> IO.iodata_to_binary()
+      |> then(&render_open_tag(name, tag_attrs, &1, parse_input))
     end
   end
 
@@ -305,26 +332,6 @@ defmodule Webserver.Parser do
       :ok
     else
       {:error, {:missing_attrs, missing}}
-    end
-  end
-
-  defp replace_slots(partial, slot_map, expected_slots) do
-    if expected_slots == [] do
-      partial
-    else
-      Regex.replace(@slot_placeholder_regex, partial, fn _match, slot_name ->
-        Map.fetch!(slot_map, slot_name)
-      end)
-    end
-  end
-
-  defp replace_attrs(partial, attrs, expected_attrs) do
-    if expected_attrs == [] do
-      partial
-    else
-      Regex.replace(@attr_placeholder_regex, partial, fn _match, attr_name ->
-        Map.fetch!(attrs, attr_name)
-      end)
     end
   end
 end

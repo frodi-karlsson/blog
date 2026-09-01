@@ -220,6 +220,58 @@ defmodule Webserver.ParserTest do
     end
   end
 
+  describe "partials referenced from inside partials" do
+    # The invariant the compiled-template rewrite is most likely to break, and
+    # the reason a `{:partial, ...}` segment is structural rather than spliced
+    # text. GoldenTest asserts this against the real templates; this asserts it
+    # in isolation, two levels deep.
+    test "a self-closing reference two levels deep resolves" do
+      partials = %{
+        "partials/outer.html" => "[<% middle.html %/>]",
+        "partials/middle.html" => "(<% inner.html %/>)",
+        "partials/inner.html" => "leaf"
+      }
+
+      assert {:ok, "[(leaf)]"} =
+               Parser.parse(%ParseInput{
+                 file: "<% outer.html %/>",
+                 template_dir: "/priv/templates",
+                 partials: partials
+               })
+    end
+
+    test "an open/close reference with a slot resolves" do
+      partials = %{
+        "partials/outer.html" =>
+          "[<% inner.html %><slot:body><% leaf.html %/></slot:body><%/ inner.html %>]",
+        "partials/inner.html" => "({{body}})",
+        "partials/leaf.html" => "leaf"
+      }
+
+      assert {:ok, "[(leaf)]"} =
+               Parser.parse(%ParseInput{
+                 file: "<% outer.html %/>",
+                 template_dir: "/priv/templates",
+                 partials: partials
+               })
+    end
+
+    test "an open/close reference passes its attributes through" do
+      partials = %{
+        "partials/outer.html" =>
+          "<% inner.html k='v' %><slot:body>b</slot:body><%/ inner.html %>",
+        "partials/inner.html" => "{{@k}}:{{body}}"
+      }
+
+      assert {:ok, "v:b"} =
+               Parser.parse(%ParseInput{
+                 file: "<% outer.html %/>",
+                 template_dir: "/priv/templates",
+                 partials: partials
+               })
+    end
+  end
+
   describe "named slot extraction" do
     test "two slots with identical content are each substituted in place" do
       template = """

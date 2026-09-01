@@ -6,10 +6,18 @@ defmodule Webserver.Parser.Resolver do
 
   alias Webserver.Parser.ParseInput
 
+  @doc """
+  The `partials`/`compiled_partials` map key for a partial reference.
+
+  Single-sourced so the raw-text and compiled-template lookups cannot drift:
+  a mismatch would silently miss and fall back to compiling on demand.
+  """
+  @spec partial_key(String.t()) :: String.t()
+  def partial_key(string), do: Path.join("partials", String.trim(string))
+
   @spec resolve_partial_reference(String.t(), ParseInput.t()) :: String.t() | nil
   def resolve_partial_reference(string, %ParseInput{} = parse_input) do
-    key = Path.join("partials", String.trim(string))
-    Map.get(parse_input.partials, key)
+    Map.get(parse_input.partials, partial_key(string))
   end
 
   @spec resolve_page(String.t(), String.t()) :: {:ok, String.t()} | {:error, :not_found}
