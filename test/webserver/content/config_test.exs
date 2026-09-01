@@ -22,7 +22,7 @@ defmodule Webserver.Content.ConfigTest do
     assert Config.check_interval(table) == 250
   end
 
-  test "get/1 raises a clear error for an unknown table" do
+  test "get/1 raises for a table with no stored config" do
     assert_raise ArgumentError, fn -> Config.get(unique_table()) end
   end
 

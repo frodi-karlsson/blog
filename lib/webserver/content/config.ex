@@ -6,8 +6,8 @@ defmodule Webserver.Content.Config do
   staleness, so it lives in `:persistent_term` rather than ETS — reads are a
   direct term lookup with no copy.
 
-  `:persistent_term` writes trigger a global GC scan, so only write at init or
-  on an explicit refresh. Never write per request.
+  `:persistent_term` writes trigger a global GC scan, so `put/2` is called once
+  from `Store.init/1` and nowhere else. Never write per request.
   """
 
   @type t :: %{
