@@ -7,17 +7,13 @@ defmodule Webserver.Content.Store do
   use GenServer
 
   alias Webserver.Content.BlogItemRenderer
-  alias Webserver.Content.Generator
+  alias Webserver.Content.Builder
+  alias Webserver.Content.PageEntry
   alias Webserver.FrontMatter
   alias Webserver.Parser
   alias Webserver.Parser.ParseInput
 
   require Logger
-
-  defmodule PageEntry do
-    @moduledoc false
-    defstruct [:parsed, :mtime, :last_checked_at]
-  end
 
   @spec start_link({String.t(), non_neg_integer(), module(), boolean()}) :: GenServer.on_start()
   def start_link({template_dir, check_interval, reader, live_reload?}) do
@@ -229,14 +225,7 @@ defmodule Webserver.Content.Store do
           :ets.insert(state.table, {{:partial, key}, content})
         end)
 
-        state = %{state | partials: partials}
-
-        state =
-          state
-          |> do_generate_livereload_partial()
-          |> do_generate_content()
-
-        {:ok, state}
+        {:ok, do_generate_content(%{state | partials: partials})}
 
       {:error, reason} ->
         {:error, reason}
@@ -266,83 +255,29 @@ defmodule Webserver.Content.Store do
     end
   end
 
-  defp do_generate_livereload_partial(state) do
-    key = "partials/generated_livereload_script.html"
-    script = Generator.generate_livereload_partial(state.live_reload?)
-    :ets.insert(state.table, {{:partial, key}, script})
-    %{state | partials: Map.put(state.partials, key, script)}
-  end
-
   defp do_generate_content(state) do
-    pages_meta = Generator.scan_pages(state)
+    %{rows: rows, partials: partials, tag_page_filenames: filenames} = Builder.build(state)
 
-    blog_key = "partials/generated_blog_items.html"
-    rendered = Generator.generate_blog_index(pages_meta, state, state.partials)
-    :ets.insert(state.table, {{:partial, blog_key}, rendered})
+    # Prune and insert touch disjoint key sets — the prune deletes only
+    # `previous - filenames`, the rows write only `filenames` — so the order of
+    # these two lines does not matter.
+    prune_stale_tag_pages(state.table, filenames)
+    Enum.each(rows, &:ets.insert(state.table, &1))
+    :ets.insert(state.table, {:generated_tag_pages, filenames})
 
-    posts = Generator.build_posts_db(pages_meta)
-    :ets.insert(state.table, {:posts_db, posts})
-
-    partials_with_blog = Map.put(state.partials, blog_key, rendered)
-
-    tags_index_html =
-      Generator.generate_tags_index_page(posts, state, partials_with_blog)
-
-    insert_generated_page(state.table, "tags/index.html", tags_index_html)
-
-    tag_pages = Generator.generate_tag_pages(posts, state, partials_with_blog)
-    refresh_tag_pages(state.table, tag_pages)
-
-    pages = Generator.generate_page_registry(pages_meta)
-    :ets.insert(state.table, {:page_registry, pages})
-    :ets.insert(state.table, {:page_path_set, page_path_set(pages)})
-
-    %{state | partials: partials_with_blog}
+    %{state | partials: partials}
   end
 
-  # Published alongside the registry so the metrics handler can test a path
-  # with a set lookup instead of scanning every page on each request.
-  defp page_path_set(pages) do
-    pages
-    |> Enum.flat_map(fn
-      %{"path" => path} when is_binary(path) -> [path]
-      _ -> []
-    end)
-    |> MapSet.new()
-  end
-
-  defp refresh_tag_pages(table, tag_pages) do
-    new_filenames =
-      tag_pages
-      |> Map.keys()
-      |> Enum.map(&"tags/#{&1}.html")
-      |> MapSet.new()
-
+  defp prune_stale_tag_pages(table, current_filenames) do
     previous =
       case :ets.lookup(table, :generated_tag_pages) do
         [{:generated_tag_pages, set}] -> set
         [] -> MapSet.new()
       end
 
-    Enum.each(MapSet.difference(previous, new_filenames), fn filename ->
-      :ets.delete(table, {:page, filename})
-    end)
-
-    Enum.each(tag_pages, fn {tag, html} ->
-      insert_generated_page(table, "tags/#{tag}.html", html)
-    end)
-
-    :ets.insert(table, {:generated_tag_pages, new_filenames})
-  end
-
-  defp insert_generated_page(table, filename, html) do
-    entry = %PageEntry{
-      parsed: html,
-      mtime: :generated,
-      last_checked_at: System.system_time(:millisecond)
-    }
-
-    :ets.insert(table, {{:page, filename}, entry})
+    previous
+    |> MapSet.difference(current_filenames)
+    |> Enum.each(&:ets.delete(table, {:page, &1}))
   end
 
   defp parse_page(content, meta, state) do
