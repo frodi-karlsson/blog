@@ -1,8 +1,8 @@
-defmodule Webserver.TemplateServer.TemplateReaderTest do
+defmodule Webserver.Content.TemplateReaderTest do
   use ExUnit.Case, async: true
 
-  alias Webserver.TemplateServer.TemplateReader.File, as: FileReader
-  alias Webserver.TemplateServer.TemplateReader.Sandbox
+  alias Webserver.Content.TemplateReader.File, as: FileReader
+  alias Webserver.Content.TemplateReader.Sandbox
 
   describe "get_partials with Sandbox" do
     test "should return partials for valid template_dir" do

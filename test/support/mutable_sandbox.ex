@@ -1,11 +1,11 @@
-defmodule Webserver.TemplateServer.TemplateReader.MutableSandbox do
+defmodule Webserver.Content.TemplateReader.MutableSandbox do
   @moduledoc """
   Agent-backed template reader used by live-reload tests. Callers seed
   pages before starting the cache, then mutate the seeded state between
   refreshes to exercise add/edit/remove flows.
   """
 
-  @behaviour Webserver.TemplateServer.TemplateReader
+  @behaviour Webserver.Content.TemplateReader
 
   use Agent
 

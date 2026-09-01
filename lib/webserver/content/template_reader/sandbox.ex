@@ -1,10 +1,10 @@
-defmodule Webserver.TemplateServer.TemplateReader.Sandbox do
+defmodule Webserver.Content.TemplateReader.Sandbox do
   @moduledoc """
   In-memory template reader for testing. Returns predefined templates
   for the `/priv/templates` base URL and errors for any other path.
   """
 
-  @behaviour Webserver.TemplateServer.TemplateReader
+  @behaviour Webserver.Content.TemplateReader
 
   @impl true
   def get_partials("/priv/templates") do

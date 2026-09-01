@@ -7,8 +7,8 @@ defmodule Webserver.Watcher do
 
   alias Mix.Tasks.Webserver.DigestAssets
   alias Webserver.AssetServer
+  alias Webserver.Content.Store
   alias Webserver.LiveReload.PubSub
-  alias Webserver.TemplateServer.Cache
 
   def start_link(args) do
     GenServer.start_link(__MODULE__, args, name: __MODULE__)
@@ -88,12 +88,12 @@ defmodule Webserver.Watcher do
     case Path.split(rel_path) do
       ["pages" | rest] ->
         filename = Path.join(rest)
-        GenServer.cast(Cache, {:invalidate, filename})
-        GenServer.cast(Cache, :refresh_content)
+        GenServer.cast(Store, {:invalidate, filename})
+        GenServer.cast(Store, :refresh_content)
         broadcast_reload(:full)
 
       ["partials" | _] ->
-        Cache.force_refresh()
+        Store.force_refresh()
         broadcast_reload(:full)
 
       _ ->

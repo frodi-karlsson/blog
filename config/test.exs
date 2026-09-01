@@ -1,7 +1,7 @@
 import Config
 
 config :webserver,
-  template_reader: Webserver.TemplateServer.TemplateReader.Sandbox,
+  template_reader: Webserver.Content.TemplateReader.Sandbox,
   port: 4444,
   template_dir: "/priv/templates",
   mtime_check_interval: 0,

@@ -1,4 +1,4 @@
-defmodule Webserver.TemplateServer.Cache do
+defmodule Webserver.Content.Store do
   @moduledoc """
   A concurrent cache for parsed templates using ETS for fast reads and a GenServer
   for serialized writes and revalidations.
@@ -6,11 +6,11 @@ defmodule Webserver.TemplateServer.Cache do
 
   use GenServer
 
+  alias Webserver.Content.BlogItemRenderer
+  alias Webserver.Content.Generator
   alias Webserver.FrontMatter
   alias Webserver.Parser
   alias Webserver.Parser.ParseInput
-  alias Webserver.TemplateServer.BlogItemRenderer
-  alias Webserver.TemplateServer.ContentGenerator
 
   require Logger
 
@@ -77,7 +77,7 @@ defmodule Webserver.TemplateServer.Cache do
   @spec force_refresh(atom() | pid()) :: :ok | {:error, term()}
   def force_refresh(server \\ __MODULE__), do: GenServer.call(server, :force_refresh)
 
-  @spec list_posts(atom() | pid()) :: [Webserver.TemplateServer.Post.t()]
+  @spec list_posts(atom() | pid()) :: [Webserver.Content.Post.t()]
   def list_posts(server \\ __MODULE__) do
     case :ets.lookup(table_for(server), :posts_db) do
       [{:posts_db, posts}] -> posts
@@ -85,13 +85,13 @@ defmodule Webserver.TemplateServer.Cache do
     end
   end
 
-  @spec posts_by_tag(atom() | pid(), String.t()) :: [Webserver.TemplateServer.Post.t()]
+  @spec posts_by_tag(atom() | pid(), String.t()) :: [Webserver.Content.Post.t()]
   def posts_by_tag(server \\ __MODULE__, tag) do
     needle = String.downcase(tag)
     Enum.filter(list_posts(server), fn post -> needle in post.tags end)
   end
 
-  @spec search_posts(atom() | pid(), String.t()) :: [Webserver.TemplateServer.Post.t()]
+  @spec search_posts(atom() | pid(), String.t()) :: [Webserver.Content.Post.t()]
   def search_posts(server \\ __MODULE__, query) do
     q = query |> String.trim() |> String.downcase() |> String.slice(0, 200)
 
@@ -315,32 +315,32 @@ defmodule Webserver.TemplateServer.Cache do
 
   defp do_generate_livereload_partial(state) do
     key = "partials/generated_livereload_script.html"
-    script = ContentGenerator.generate_livereload_partial(state.live_reload?)
+    script = Generator.generate_livereload_partial(state.live_reload?)
     :ets.insert(state.table, {{:partial, key}, script})
     %{state | partials: Map.put(state.partials, key, script)}
   end
 
   defp do_generate_content(state) do
-    pages_meta = ContentGenerator.scan_pages(state)
+    pages_meta = Generator.scan_pages(state)
 
     blog_key = "partials/generated_blog_items.html"
-    rendered = ContentGenerator.generate_blog_index(pages_meta, state, state.partials)
+    rendered = Generator.generate_blog_index(pages_meta, state, state.partials)
     :ets.insert(state.table, {{:partial, blog_key}, rendered})
 
-    posts = ContentGenerator.build_posts_db(pages_meta)
+    posts = Generator.build_posts_db(pages_meta)
     :ets.insert(state.table, {:posts_db, posts})
 
     partials_with_blog = Map.put(state.partials, blog_key, rendered)
 
     tags_index_html =
-      ContentGenerator.generate_tags_index_page(posts, state, partials_with_blog)
+      Generator.generate_tags_index_page(posts, state, partials_with_blog)
 
     insert_generated_page(state.table, "tags/index.html", tags_index_html)
 
-    tag_pages = ContentGenerator.generate_tag_pages(posts, state, partials_with_blog)
+    tag_pages = Generator.generate_tag_pages(posts, state, partials_with_blog)
     refresh_tag_pages(state.table, tag_pages)
 
-    pages = ContentGenerator.generate_page_registry(pages_meta)
+    pages = Generator.generate_page_registry(pages_meta)
     :ets.insert(state.table, {:page_registry, pages})
     :ets.insert(state.table, {:page_path_set, page_path_set(pages)})
 
@@ -415,7 +415,7 @@ defmodule Webserver.TemplateServer.Cache do
   defp table_for(server) when is_pid(server) do
     case Process.info(server, :registered_name) do
       {:registered_name, name} -> name
-      _ -> raise "ETS-backed Cache requires a named process"
+      _ -> raise "ETS-backed Store requires a named process"
     end
   end
 

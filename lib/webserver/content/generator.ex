@@ -1,14 +1,14 @@
-defmodule Webserver.TemplateServer.ContentGenerator do
+defmodule Webserver.Content.Generator do
   @moduledoc """
   Generates dynamic content (blog index, page registry, livereload script)
   that is stored in the cache.
   """
 
+  alias Webserver.Content.BlogItemRenderer
+  alias Webserver.Content.Post
   alias Webserver.FrontMatter
   alias Webserver.Parser
   alias Webserver.Parser.ParseInput
-  alias Webserver.TemplateServer.BlogItemRenderer
-  alias Webserver.TemplateServer.Post
 
   require Logger
 

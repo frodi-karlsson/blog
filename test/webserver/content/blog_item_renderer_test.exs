@@ -1,7 +1,7 @@
-defmodule Webserver.TemplateServer.BlogItemRendererTest do
+defmodule Webserver.Content.BlogItemRendererTest do
   use ExUnit.Case, async: true
 
-  alias Webserver.TemplateServer.BlogItemRenderer
+  alias Webserver.Content.BlogItemRenderer
 
   @partials %{
     "partials/blog_index_item.html" => ~S"""

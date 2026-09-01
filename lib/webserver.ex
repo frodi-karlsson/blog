@@ -2,7 +2,7 @@ defmodule Webserver do
   @moduledoc """
   OTP Application entry point. Starts the supervision tree:
 
-    - `Webserver.TemplateServer.Cache` — GenServer cache for parsed templates
+    - `Webserver.Content.Store` — GenServer cache for parsed templates
     - `Bandit` — HTTP server using `Webserver.Router` as the Plug handler
   """
 
@@ -22,8 +22,7 @@ defmodule Webserver do
 
     children = [
       Webserver.AssetServer,
-      {Webserver.TemplateServer.Cache,
-       {template_dir, mtime_check_interval, reader, live_reload?}},
+      {Webserver.Content.Store, {template_dir, mtime_check_interval, reader, live_reload?}},
       {Bandit, plug: Webserver.Router, scheme: :http, port: port}
     ]
 

@@ -1,8 +1,8 @@
-defmodule Webserver.TemplateServer.CacheTest do
+defmodule Webserver.Content.StoreTest do
   use ExUnit.Case, async: true
 
-  alias Webserver.TemplateServer.Cache
-  alias Webserver.TemplateServer.TemplateReader.Sandbox
+  alias Webserver.Content.Store
+  alias Webserver.Content.TemplateReader.Sandbox
 
   defp start_cache(opts \\ []) do
     template_dir = Keyword.get(opts, :template_dir, "/priv/templates")
@@ -12,7 +12,7 @@ defmodule Webserver.TemplateServer.CacheTest do
     name = :"test_cache_#{System.unique_integer([:positive])}"
 
     {:ok, _pid} =
-      GenServer.start_link(Cache, {template_dir, interval, reader, live_reload?, name},
+      GenServer.start_link(Store, {template_dir, interval, reader, live_reload?, name},
         name: name
       )
 
@@ -29,7 +29,7 @@ defmodule Webserver.TemplateServer.CacheTest do
       name = :"test_cache_#{System.unique_integer([:positive])}"
 
       assert {:error, :not_found} =
-               GenServer.start(Cache, {"/nonexistent", 0, Sandbox, false, name}, name: name)
+               GenServer.start(Store, {"/nonexistent", 0, Sandbox, false, name}, name: name)
     end
   end
 
@@ -37,17 +37,17 @@ defmodule Webserver.TemplateServer.CacheTest do
     setup do: {:ok, name: start_cache()}
 
     test "should return parsed HTML for a known page", %{name: name} do
-      assert {:ok, html} = Cache.get_page(name, "index.html")
+      assert {:ok, html} = Store.get_page(name, "index.html")
       assert String.contains?(html, "<html")
     end
 
     test "should return :not_found for an unknown page", %{name: name} do
-      assert {:error, :not_found} = Cache.get_page(name, "missing.html")
+      assert {:error, :not_found} = Store.get_page(name, "missing.html")
     end
 
     test "should be a cache hit on second call for same page", %{name: name} do
-      {:ok, first} = Cache.get_page(name, "index.html")
-      {:ok, second} = Cache.get_page(name, "index.html")
+      {:ok, first} = Store.get_page(name, "index.html")
+      {:ok, second} = Store.get_page(name, "index.html")
       assert first == second
     end
   end
@@ -56,37 +56,37 @@ defmodule Webserver.TemplateServer.CacheTest do
     setup do: {:ok, name: start_cache()}
 
     test "should start with all counters at zero", %{name: name} do
-      assert Cache.stats(name) == %{hits: 0, misses: 0, revalidations: 0, revalidation_errors: 0}
+      assert Store.stats(name) == %{hits: 0, misses: 0, revalidations: 0, revalidation_errors: 0}
     end
 
     test "should record a miss on first page load", %{name: name} do
-      Cache.get_page(name, "index.html")
-      stats = Cache.stats(name)
+      Store.get_page(name, "index.html")
+      stats = Store.stats(name)
       assert stats.misses == 1
       assert stats.hits == 0
     end
 
     test "should record a hit on repeated page load", %{name: name} do
-      Cache.get_page(name, "index.html")
-      Cache.get_page(name, "index.html")
-      stats = Cache.stats(name)
+      Store.get_page(name, "index.html")
+      Store.get_page(name, "index.html")
+      stats = Store.stats(name)
       assert stats.misses == 1
       assert stats.hits == 1
     end
 
     test "should record a miss for not-found pages", %{name: name} do
-      Cache.get_page(name, "missing.html")
-      stats = Cache.stats(name)
+      Store.get_page(name, "missing.html")
+      stats = Store.stats(name)
       assert stats.misses == 1
     end
 
     test "should respect revalidation interval" do
       name = start_cache(interval: 1000)
-      Cache.get_page(name, "index.html")
-      assert Cache.stats(name).misses == 1
+      Store.get_page(name, "index.html")
+      assert Store.stats(name).misses == 1
 
-      Cache.get_page(name, "index.html")
-      stats = Cache.stats(name)
+      Store.get_page(name, "index.html")
+      stats = Store.stats(name)
       assert stats.hits == 1
       assert stats.revalidations == 0
     end
@@ -96,17 +96,17 @@ defmodule Webserver.TemplateServer.CacheTest do
     setup do: {:ok, name: start_cache()}
 
     test "should reset stats and page cache", %{name: name} do
-      Cache.get_page(name, "index.html")
-      Cache.get_page(name, "index.html")
+      Store.get_page(name, "index.html")
+      Store.get_page(name, "index.html")
 
-      assert :ok = Cache.force_refresh(name)
-      assert Cache.stats(name) == %{hits: 0, misses: 0, revalidations: 0, revalidation_errors: 0}
+      assert :ok = Store.force_refresh(name)
+      assert Store.stats(name) == %{hits: 0, misses: 0, revalidations: 0, revalidation_errors: 0}
     end
 
     test "should re-fetch pages after force_refresh", %{name: name} do
-      {:ok, before_refresh} = Cache.get_page(name, "index.html")
-      :ok = Cache.force_refresh(name)
-      {:ok, after_refresh} = Cache.get_page(name, "index.html")
+      {:ok, before_refresh} = Store.get_page(name, "index.html")
+      :ok = Store.force_refresh(name)
+      {:ok, after_refresh} = Store.get_page(name, "index.html")
       assert before_refresh == after_refresh
     end
   end
@@ -115,7 +115,7 @@ defmodule Webserver.TemplateServer.CacheTest do
     setup do: {:ok, name: start_cache()}
 
     test "should return list of pages excluding noindex", %{name: name} do
-      sitemap = Cache.get_sitemap(name)
+      sitemap = Store.get_sitemap(name)
       assert is_list(sitemap)
       assert Enum.any?(sitemap, &(&1["id"] == "index"))
       refute Enum.any?(sitemap, &(&1["id"] == "noindex-page"))
@@ -126,14 +126,14 @@ defmodule Webserver.TemplateServer.CacheTest do
     setup do: {:ok, name: start_cache()}
 
     test "should invalidate a specific page", %{name: name} do
-      Cache.get_page(name, "index.html")
-      assert Cache.stats(name).misses == 1
+      Store.get_page(name, "index.html")
+      assert Store.stats(name).misses == 1
 
       GenServer.cast(name, {:invalidate, "index.html"})
       _ = GenServer.call(name, :stats)
 
-      Cache.get_page(name, "index.html")
-      assert Cache.stats(name).misses == 2
+      Store.get_page(name, "index.html")
+      assert Store.stats(name).misses == 2
     end
 
     test "should refresh blog index and page registry together", %{name: name} do
@@ -157,7 +157,7 @@ defmodule Webserver.TemplateServer.CacheTest do
     setup do: {:ok, name: start_cache()}
 
     test "list_posts/1 returns all blog posts, date desc", %{name: name} do
-      posts = Cache.list_posts(name)
+      posts = Store.list_posts(name)
       ids = Enum.map(posts, & &1.id)
       assert "post-a" in ids
       assert "post-b" in ids
@@ -167,37 +167,37 @@ defmodule Webserver.TemplateServer.CacheTest do
     end
 
     test "posts_by_tag/2 filters case-insensitively", %{name: name} do
-      posts = Cache.posts_by_tag(name, "TypeScript")
+      posts = Store.posts_by_tag(name, "TypeScript")
       assert Enum.map(posts, & &1.id) == ["post-a"]
     end
 
     test "posts_by_tag/2 returns empty list for unknown tag", %{name: name} do
-      assert Cache.posts_by_tag(name, "nonexistent") == []
+      assert Store.posts_by_tag(name, "nonexistent") == []
     end
 
     test "search_posts/2 matches on title", %{name: name} do
-      posts = Cache.search_posts(name, "post a")
+      posts = Store.search_posts(name, "post a")
       assert Enum.map(posts, & &1.id) == ["post-a"]
     end
 
     test "search_posts/2 matches on summary", %{name: name} do
-      posts = Cache.search_posts(name, "about b")
+      posts = Store.search_posts(name, "about b")
       assert Enum.map(posts, & &1.id) == ["post-b"]
     end
 
     test "search_posts/2 is case-insensitive", %{name: name} do
-      posts = Cache.search_posts(name, "POST A")
+      posts = Store.search_posts(name, "POST A")
       assert Enum.map(posts, & &1.id) == ["post-a"]
     end
 
     test "search_posts/2 with empty query returns all posts", %{name: name} do
-      all = Cache.list_posts(name)
-      assert Cache.search_posts(name, "") == all
-      assert Cache.search_posts(name, "   ") == all
+      all = Store.list_posts(name)
+      assert Store.search_posts(name, "") == all
+      assert Store.search_posts(name, "   ") == all
     end
 
     test "all_tags/1 returns tags with counts, sorted", %{name: name} do
-      tags = Cache.all_tags(name)
+      tags = Store.all_tags(name)
       assert {"anabranch", 1} in tags
       assert {"typescript", 1} in tags
       assert {"elixir", 1} in tags
@@ -208,7 +208,7 @@ defmodule Webserver.TemplateServer.CacheTest do
     setup do: {:ok, name: start_cache()}
 
     test "GET /tags returns 200 with the tags-index HTML", %{name: name} do
-      assert {:ok, html} = Cache.get_page(name, "tags/index.html")
+      assert {:ok, html} = Store.get_page(name, "tags/index.html")
       assert html =~ "Tags"
       assert html =~ "anabranch"
       assert html =~ "typescript"
@@ -216,13 +216,13 @@ defmodule Webserver.TemplateServer.CacheTest do
     end
 
     test "each tag chip links to /tags/<name>", %{name: name} do
-      {:ok, html} = Cache.get_page(name, "tags/index.html")
+      {:ok, html} = Store.get_page(name, "tags/index.html")
       assert html =~ ~s|href="/tags/anabranch"|
       assert html =~ ~s|href="/tags/typescript"|
     end
 
     test "chip label includes count", %{name: name} do
-      {:ok, html} = Cache.get_page(name, "tags/index.html")
+      {:ok, html} = Store.get_page(name, "tags/index.html")
       assert html =~ ~r|anabranch.*\(1\)|
     end
   end
@@ -231,24 +231,24 @@ defmodule Webserver.TemplateServer.CacheTest do
     setup do: {:ok, name: start_cache()}
 
     test "GET /tags/anabranch returns 200 with only posts in that tag", %{name: name} do
-      assert {:ok, html} = Cache.get_page(name, "tags/anabranch.html")
+      assert {:ok, html} = Store.get_page(name, "tags/anabranch.html")
       assert html =~ "anabranch"
       assert html =~ "post-a"
       refute html =~ "post-b"
     end
 
     test "GET /tags/nonexistent returns not_found", %{name: name} do
-      assert {:error, :not_found} = Cache.get_page(name, "tags/nonexistent.html")
+      assert {:error, :not_found} = Store.get_page(name, "tags/nonexistent.html")
     end
 
     test "tag pages are lowercased", %{name: name} do
       # Post A has 'TypeScript' in tags; parse_tags lowercases it.
-      assert {:ok, _} = Cache.get_page(name, "tags/typescript.html")
-      assert {:error, :not_found} = Cache.get_page(name, "tags/TypeScript.html")
+      assert {:ok, _} = Store.get_page(name, "tags/typescript.html")
+      assert {:error, :not_found} = Store.get_page(name, "tags/TypeScript.html")
     end
 
     test "tag pages have a back link to /tags", %{name: name} do
-      {:ok, html} = Cache.get_page(name, "tags/anabranch.html")
+      {:ok, html} = Store.get_page(name, "tags/anabranch.html")
       assert html =~ ~s|href="/tags"|
     end
   end

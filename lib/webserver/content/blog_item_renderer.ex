@@ -1,4 +1,4 @@
-defmodule Webserver.TemplateServer.BlogItemRenderer do
+defmodule Webserver.Content.BlogItemRenderer do
   @moduledoc """
   Renders a single blog index item using the `blog_index_item.html` partial.
   Used both at cache-init time (for the pre-rendered blog index) and at

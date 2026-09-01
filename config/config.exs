@@ -1,7 +1,7 @@
 import Config
 
 config :webserver,
-  template_reader: Webserver.TemplateServer.TemplateReader.File,
+  template_reader: Webserver.Content.TemplateReader.File,
   port: 4040,
   template_dir: "./priv/templates",
   external_url: "https://blog.frodikarlsson.com",

@@ -3,12 +3,12 @@ defmodule Webserver.Admin.Stats do
   Assembles the merged admin stats payload: request metrics, BEAM stats, and
   cache counters with a derived hit rate.
 
-  `Cache.stats/1` stays a raw counter accessor; the ratio is derived here so the
+  `Store.stats/1` stays a raw counter accessor; the ratio is derived here so the
   cache has no opinion about presentation.
   """
 
+  alias Webserver.Content.Store
   alias Webserver.Telemetry.Metrics
-  alias Webserver.TemplateServer.Cache
 
   @spec snapshot() :: map()
   def snapshot do
@@ -17,7 +17,7 @@ defmodule Webserver.Admin.Stats do
   end
 
   defp cache_stats do
-    stats = Cache.stats()
+    stats = Store.stats()
     Map.put(stats, :hit_rate, hit_rate(stats.hits, stats.misses))
   end
 

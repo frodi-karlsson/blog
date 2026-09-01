@@ -8,8 +8,8 @@ defmodule Webserver.AdminRouter do
 
   alias Webserver.Admin.Stats
   alias Webserver.Admin.StatsPage
+  alias Webserver.Content.Store
   alias Webserver.Server
-  alias Webserver.TemplateServer.Cache
 
   plug(:match)
   plug(:authenticate)
@@ -24,7 +24,7 @@ defmodule Webserver.AdminRouter do
 
   # Kept for compatibility; /stats.json now carries these under :cache too.
   get "/cache/stats" do
-    stats = Cache.stats()
+    stats = Store.stats()
     json(conn, 200, stats)
   end
 
@@ -39,7 +39,7 @@ defmodule Webserver.AdminRouter do
   end
 
   post "/cache/refresh" do
-    case Cache.force_refresh() do
+    case Store.force_refresh() do
       :ok -> json(conn, 200, %{status: "cache refreshed"})
       {:error, reason} -> json(conn, 500, %{error: inspect(reason)})
     end

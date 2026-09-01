@@ -9,9 +9,9 @@ defmodule Webserver.Server do
 
   import Plug.Conn
 
-  alias Webserver.TemplateServer.BlogItemRenderer
-  alias Webserver.TemplateServer.Cache
-  alias Webserver.TemplateServer.Post
+  alias Webserver.Content.BlogItemRenderer
+  alias Webserver.Content.Post
+  alias Webserver.Content.Store
 
   require Logger
 
@@ -48,7 +48,7 @@ defmodule Webserver.Server do
         |> send_resp(200, parsed)
 
       {:error, :not_found} ->
-        case Cache.get_page("404.html") do
+        case Store.get_page("404.html") do
           {:ok, error_parsed} ->
             conn
             |> put_resp_content_type("text/html")
@@ -103,7 +103,7 @@ defmodule Webserver.Server do
   end
 
   defp handle_search(conn, query) do
-    posts = Cache.search_posts(query)
+    posts = Store.search_posts(query)
     html = render_search_results(query, posts)
 
     conn
@@ -117,7 +117,7 @@ defmodule Webserver.Server do
       |> Plug.HTML.html_escape()
       |> String.replace("{", "&#123;")
 
-    {:ok, partials} = Cache.get_partials()
+    {:ok, partials} = Store.get_partials()
     template_dir = Application.fetch_env!(:webserver, :template_dir)
 
     items =
@@ -162,7 +162,7 @@ defmodule Webserver.Server do
   end
 
   defp try_get_page(path) do
-    case Cache.get_page(path) do
+    case Store.get_page(path) do
       {:ok, parsed} ->
         {:ok, parsed}
 
@@ -183,7 +183,7 @@ defmodule Webserver.Server do
       {:error, :not_found}
     else
       alt_path = path |> String.replace_trailing(".html", "") |> Path.join("index.html")
-      Cache.get_page(alt_path)
+      Store.get_page(alt_path)
     end
   end
 

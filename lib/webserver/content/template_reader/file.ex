@@ -1,10 +1,10 @@
-defmodule Webserver.TemplateServer.TemplateReader.File do
+defmodule Webserver.Content.TemplateReader.File do
   @moduledoc """
   Filesystem-based template reader. Reads templates from the directory
   configured as `template_dir`. Used in dev and prod environments.
   """
 
-  @behaviour Webserver.TemplateServer.TemplateReader
+  @behaviour Webserver.Content.TemplateReader
 
   alias Webserver.Parser.Resolver
 

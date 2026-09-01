@@ -1,8 +1,8 @@
-defmodule Webserver.TemplateServer.ContentGeneratorTest do
+defmodule Webserver.Content.GeneratorTest do
   use ExUnit.Case, async: true
 
-  alias Webserver.TemplateServer.ContentGenerator
-  alias Webserver.TemplateServer.Post
+  alias Webserver.Content.Generator
+  alias Webserver.Content.Post
 
   describe "build_posts_db/1" do
     test "filters out pages missing date or summary" do
@@ -13,7 +13,7 @@ defmodule Webserver.TemplateServer.ContentGeneratorTest do
         {"c.html", %{"summary" => "s", "title" => "C"}}
       ]
 
-      posts = ContentGenerator.build_posts_db(pages_meta)
+      posts = Generator.build_posts_db(pages_meta)
       assert Enum.map(posts, & &1.id) == ["a"]
     end
 
@@ -24,7 +24,7 @@ defmodule Webserver.TemplateServer.ContentGeneratorTest do
         {"mid.html", %{"date" => "2025-12-01", "summary" => "s", "title" => "Mid"}}
       ]
 
-      posts = ContentGenerator.build_posts_db(pages_meta)
+      posts = Generator.build_posts_db(pages_meta)
       assert Enum.map(posts, & &1.id) == ["new", "mid", "old"]
     end
 
@@ -39,7 +39,7 @@ defmodule Webserver.TemplateServer.ContentGeneratorTest do
          }}
       ]
 
-      [post] = ContentGenerator.build_posts_db(pages_meta)
+      [post] = Generator.build_posts_db(pages_meta)
       assert post.tags == ["anabranch", "typescript"]
     end
 
@@ -48,7 +48,7 @@ defmodule Webserver.TemplateServer.ContentGeneratorTest do
         {"a.html", %{"date" => "2026-01-01", "summary" => "s", "title" => "A"}}
       ]
 
-      [post] = ContentGenerator.build_posts_db(pages_meta)
+      [post] = Generator.build_posts_db(pages_meta)
       assert post.tags == []
     end
 
@@ -59,7 +59,7 @@ defmodule Webserver.TemplateServer.ContentGeneratorTest do
          %{"date" => "2026-01-01", "summary" => "s", "title" => "B", "path" => "/custom-b"}}
       ]
 
-      posts = ContentGenerator.build_posts_db(pages_meta) |> Enum.sort_by(& &1.id)
+      posts = Generator.build_posts_db(pages_meta) |> Enum.sort_by(& &1.id)
       assert Enum.at(posts, 0).path == "/a"
       assert Enum.at(posts, 1).path == "/custom-b"
     end
@@ -74,7 +74,7 @@ defmodule Webserver.TemplateServer.ContentGeneratorTest do
 
       log =
         capture_log(fn ->
-          posts = ContentGenerator.build_posts_db(pages_meta)
+          posts = Generator.build_posts_db(pages_meta)
           assert Enum.map(posts, & &1.id) == ["good"]
         end)
 
@@ -94,7 +94,7 @@ defmodule Webserver.TemplateServer.ContentGeneratorTest do
          }}
       ]
 
-      [post] = ContentGenerator.build_posts_db(pages_meta)
+      [post] = Generator.build_posts_db(pages_meta)
       assert post.id == "a"
       assert post.filename == "a.html"
       assert post.path == "/a"

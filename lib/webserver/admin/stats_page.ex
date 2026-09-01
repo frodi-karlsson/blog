@@ -4,13 +4,13 @@ defmodule Webserver.Admin.StatsPage do
   layout/partial pipeline as the rest of the site.
   """
 
+  alias Webserver.Content.Store
   alias Webserver.Parser
   alias Webserver.Parser.ParseInput
-  alias Webserver.TemplateServer.Cache
 
   @spec render(map()) :: String.t()
   def render(snapshot) do
-    {:ok, partials} = Cache.get_partials()
+    {:ok, partials} = Store.get_partials()
     template_dir = Application.fetch_env!(:webserver, :template_dir)
 
     body = """

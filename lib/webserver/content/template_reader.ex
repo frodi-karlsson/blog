@@ -1,14 +1,14 @@
-defmodule Webserver.TemplateServer.TemplateReader do
+defmodule Webserver.Content.TemplateReader do
   @moduledoc """
   Behaviour for reading HTML templates from a source.
 
   Two implementations are provided:
-  - `Webserver.TemplateServer.TemplateReader.File` — reads from the filesystem (dev/prod)
-  - `Webserver.TemplateServer.TemplateReader.Sandbox` — returns in-memory fixtures (test)
+  - `Webserver.Content.TemplateReader.File` — reads from the filesystem (dev/prod)
+  - `Webserver.Content.TemplateReader.Sandbox` — returns in-memory fixtures (test)
 
   The active implementation is configured via:
 
-      config :webserver, :template_reader, Webserver.TemplateServer.TemplateReader.File
+      config :webserver, :template_reader, Webserver.Content.TemplateReader.File
   """
 
   @type partials :: %{String.t() => String.t()}

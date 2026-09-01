@@ -266,7 +266,7 @@ defmodule Webserver.Telemetry.Metrics do
   end
 
   defp in_page_registry?(path) do
-    case :ets.lookup(Webserver.TemplateServer.Cache, :page_path_set) do
+    case :ets.lookup(Webserver.Content.Store, :page_path_set) do
       [{:page_path_set, %MapSet{} = paths}] ->
         MapSet.member?(paths, path)
 
@@ -279,7 +279,7 @@ defmodule Webserver.Telemetry.Metrics do
   end
 
   defp registry_list_member?(path) do
-    case :ets.lookup(Webserver.TemplateServer.Cache, :page_registry) do
+    case :ets.lookup(Webserver.Content.Store, :page_registry) do
       [{:page_registry, pages}] when is_list(pages) ->
         Enum.any?(pages, fn
           %{"path" => ^path} -> true

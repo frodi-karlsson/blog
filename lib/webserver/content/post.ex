@@ -1,4 +1,4 @@
-defmodule Webserver.TemplateServer.Post do
+defmodule Webserver.Content.Post do
   @moduledoc """
   A blog post record built from a page's frontmatter. Stored in the cache
   under `{:posts_db, [%Post{}]}` and consumed by tag pages and search.
