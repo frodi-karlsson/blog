@@ -2,6 +2,8 @@ defmodule Webserver do
   @moduledoc """
   OTP Application entry point. Starts the supervision tree:
 
+    - `Webserver.Content.TableOwner` — owns the content ETS table, independent
+      of `Store`, so a `Store` crash cannot take the cache down with it
     - `Webserver.Content.Store` — GenServer cache for parsed templates
     - `Bandit` — HTTP server using `Webserver.Router` as the Plug handler
   """
@@ -22,6 +24,10 @@ defmodule Webserver do
 
     children = [
       Webserver.AssetServer,
+      %{
+        id: Webserver.Content.TableOwner,
+        start: {Webserver.Content.TableOwner, :start_link, [Webserver.Content.Store]}
+      },
       {Webserver.Content.Store, {template_dir, mtime_check_interval, reader, live_reload?}},
       {Bandit, plug: Webserver.Router, scheme: :http, port: port}
     ]

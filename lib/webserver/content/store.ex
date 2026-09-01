@@ -10,6 +10,7 @@ defmodule Webserver.Content.Store do
   alias Webserver.Content.Builder
   alias Webserver.Content.Config
   alias Webserver.Content.PageEntry
+  alias Webserver.Content.TableOwner
   alias Webserver.FrontMatter
   alias Webserver.Parser
   alias Webserver.Parser.ParseInput
@@ -94,13 +95,12 @@ defmodule Webserver.Content.Store do
 
   @impl true
   def init({template_dir, check_interval, reader, live_reload?, table}) do
-    :ets.new(table, [
-      :set,
-      :public,
-      :named_table,
-      read_concurrency: true,
-      write_concurrency: :auto
-    ])
+    TableOwner.ensure_table(table)
+
+    # Revalidation in-flight markers are transient. The table now outlives this
+    # process, so a crash mid-revalidation would otherwise leave a marker behind
+    # forever, permanently disabling background revalidation for that page.
+    :ets.match_delete(table, {{:revalidate_in_flight, :_}, :_})
 
     Config.put(table, %{
       template_dir: template_dir,
@@ -144,21 +144,19 @@ defmodule Webserver.Content.Store do
 
   @impl true
   def handle_cast({:revalidate_async, path, checked_at}, state) do
-    result =
-      case :ets.lookup(state.table, {:page, path}) do
-        [{_, %PageEntry{} = current_entry}] ->
-          if current_entry.last_checked_at > checked_at do
-            {:noreply, state}
-          else
-            do_revalidate_async(path, current_entry, checked_at, state)
-          end
-
-        _ ->
+    case :ets.lookup(state.table, {:page, path}) do
+      [{_, %PageEntry{} = current_entry}] ->
+        if current_entry.last_checked_at > checked_at do
           {:noreply, state}
-      end
+        else
+          do_revalidate_async(path, current_entry, checked_at, state)
+        end
 
+      _ ->
+        {:noreply, state}
+    end
+  after
     :ets.delete(state.table, {:revalidate_in_flight, path})
-    result
   end
 
   @impl true
