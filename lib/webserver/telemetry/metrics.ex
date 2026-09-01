@@ -12,6 +12,8 @@ defmodule Webserver.Telemetry.Metrics do
   the last minute rather than the whole uptime.
   """
 
+  alias Webserver.Content.Query
+
   @table :webserver_metrics
   @handler_id :webserver_request_metrics
   @sample_size 256
@@ -262,32 +264,6 @@ defmodule Webserver.Telemetry.Metrics do
   end
 
   defp valid_path?(path) do
-    path in ["/", "/health", "/robots.txt", "/sitemap.xml"] or in_page_registry?(path)
-  end
-
-  defp in_page_registry?(path) do
-    case :ets.lookup(Webserver.Content.Store, :page_path_set) do
-      [{:page_path_set, %MapSet{} = paths}] ->
-        MapSet.member?(paths, path)
-
-      _ ->
-        registry_list_member?(path)
-    end
-  rescue
-    ArgumentError ->
-      false
-  end
-
-  defp registry_list_member?(path) do
-    case :ets.lookup(Webserver.Content.Store, :page_registry) do
-      [{:page_registry, pages}] when is_list(pages) ->
-        Enum.any?(pages, fn
-          %{"path" => ^path} -> true
-          _ -> false
-        end)
-
-      _ ->
-        false
-    end
+    path in ["/", "/health", "/robots.txt", "/sitemap.xml"] or Query.page_path?(path)
   end
 end

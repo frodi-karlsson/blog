@@ -5,14 +5,14 @@ defmodule Webserver.Sitemap do
   @behaviour Plug
   import Plug.Conn
 
-  alias Webserver.Content.Store
+  alias Webserver.Content.Query
 
   @impl true
   def init(opts), do: opts
 
   @impl true
   def call(conn, _opts) do
-    pages = Store.get_sitemap()
+    pages = Query.get_sitemap()
     base_url = Application.get_env(:webserver, :external_url, "https://example.com")
 
     xml =

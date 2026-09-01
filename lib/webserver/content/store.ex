@@ -64,59 +64,12 @@ defmodule Webserver.Content.Store do
     }
   end
 
-  @spec get_sitemap(atom() | pid()) :: [map()]
-  def get_sitemap(server \\ __MODULE__) do
-    table = table_for(server)
-
-    case :ets.lookup(table, :page_registry) do
-      [{_, pages}] -> Enum.reject(pages, &Map.get(&1, "noindex", false))
-      _ -> []
-    end
-  end
-
   @spec force_refresh(atom() | pid()) :: :ok | {:error, term()}
   def force_refresh(server \\ __MODULE__), do: GenServer.call(server, :force_refresh)
-
-  @spec list_posts(atom() | pid()) :: [Webserver.Content.Post.t()]
-  def list_posts(server \\ __MODULE__) do
-    case :ets.lookup(table_for(server), :posts_db) do
-      [{:posts_db, posts}] -> posts
-      [] -> []
-    end
-  end
-
-  @spec posts_by_tag(atom() | pid(), String.t()) :: [Webserver.Content.Post.t()]
-  def posts_by_tag(server \\ __MODULE__, tag) do
-    needle = String.downcase(tag)
-    Enum.filter(list_posts(server), fn post -> needle in post.tags end)
-  end
-
-  @spec search_posts(atom() | pid(), String.t()) :: [Webserver.Content.Post.t()]
-  def search_posts(server \\ __MODULE__, query) do
-    q = query |> String.trim() |> String.downcase() |> String.slice(0, 200)
-
-    if q == "" do
-      list_posts(server)
-    else
-      Enum.filter(list_posts(server), fn post ->
-        String.contains?(String.downcase(post.title), q) or
-          String.contains?(String.downcase(post.summary), q)
-      end)
-    end
-  end
 
   @spec get_partials(atom() | pid()) :: {:ok, map()}
   def get_partials(server \\ __MODULE__) do
     GenServer.call(server, :get_partials)
-  end
-
-  @spec all_tags(atom() | pid()) :: [{String.t(), non_neg_integer()}]
-  def all_tags(server \\ __MODULE__) do
-    server
-    |> list_posts()
-    |> Enum.flat_map(& &1.tags)
-    |> Enum.frequencies()
-    |> Enum.sort_by(fn {tag, count} -> {-count, tag} end)
   end
 
   defp handle_maybe_stale(table, server, path, %PageEntry{} = entry) do

@@ -111,17 +111,6 @@ defmodule Webserver.Content.StoreTest do
     end
   end
 
-  describe "get_sitemap" do
-    setup do: {:ok, name: start_cache()}
-
-    test "should return list of pages excluding noindex", %{name: name} do
-      sitemap = Store.get_sitemap(name)
-      assert is_list(sitemap)
-      assert Enum.any?(sitemap, &(&1["id"] == "index"))
-      refute Enum.any?(sitemap, &(&1["id"] == "noindex-page"))
-    end
-  end
-
   describe "cast handlers" do
     setup do: {:ok, name: start_cache()}
 
@@ -150,57 +139,6 @@ defmodule Webserver.Content.StoreTest do
 
       assert [{_, _}] = :ets.lookup(name, {:partial, "partials/generated_blog_items.html"})
       assert [{_, ^pages}] = :ets.lookup(name, :page_registry)
-    end
-  end
-
-  describe "posts DB queries" do
-    setup do: {:ok, name: start_cache()}
-
-    test "list_posts/1 returns all blog posts, date desc", %{name: name} do
-      posts = Store.list_posts(name)
-      ids = Enum.map(posts, & &1.id)
-      assert "post-a" in ids
-      assert "post-b" in ids
-      # Post A dated 2026-05-01, Post B dated 2026-04-01
-      assert Enum.find_index(ids, &(&1 == "post-a")) <
-               Enum.find_index(ids, &(&1 == "post-b"))
-    end
-
-    test "posts_by_tag/2 filters case-insensitively", %{name: name} do
-      posts = Store.posts_by_tag(name, "TypeScript")
-      assert Enum.map(posts, & &1.id) == ["post-a"]
-    end
-
-    test "posts_by_tag/2 returns empty list for unknown tag", %{name: name} do
-      assert Store.posts_by_tag(name, "nonexistent") == []
-    end
-
-    test "search_posts/2 matches on title", %{name: name} do
-      posts = Store.search_posts(name, "post a")
-      assert Enum.map(posts, & &1.id) == ["post-a"]
-    end
-
-    test "search_posts/2 matches on summary", %{name: name} do
-      posts = Store.search_posts(name, "about b")
-      assert Enum.map(posts, & &1.id) == ["post-b"]
-    end
-
-    test "search_posts/2 is case-insensitive", %{name: name} do
-      posts = Store.search_posts(name, "POST A")
-      assert Enum.map(posts, & &1.id) == ["post-a"]
-    end
-
-    test "search_posts/2 with empty query returns all posts", %{name: name} do
-      all = Store.list_posts(name)
-      assert Store.search_posts(name, "") == all
-      assert Store.search_posts(name, "   ") == all
-    end
-
-    test "all_tags/1 returns tags with counts, sorted", %{name: name} do
-      tags = Store.all_tags(name)
-      assert {"anabranch", 1} in tags
-      assert {"typescript", 1} in tags
-      assert {"elixir", 1} in tags
     end
   end
 

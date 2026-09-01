@@ -11,6 +11,7 @@ defmodule Webserver.Server do
 
   alias Webserver.Content.BlogItemRenderer
   alias Webserver.Content.Post
+  alias Webserver.Content.Query
   alias Webserver.Content.Store
 
   require Logger
@@ -103,7 +104,7 @@ defmodule Webserver.Server do
   end
 
   defp handle_search(conn, query) do
-    posts = Store.search_posts(query)
+    posts = Query.search_posts(query)
     html = render_search_results(query, posts)
 
     conn

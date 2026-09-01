@@ -1,6 +1,7 @@
 defmodule Webserver.Content.LiveReloadTest do
   use ExUnit.Case, async: false
 
+  alias Webserver.Content.Query
   alias Webserver.Content.Store
   alias Webserver.Content.TemplateReader.MutableSandbox
 
@@ -54,26 +55,26 @@ defmodule Webserver.Content.LiveReloadTest do
   end
 
   test "adding a new post shows up on refresh", %{name: name} do
-    assert Store.posts_by_tag(name, "gamma") == []
+    assert Query.posts_by_tag(name, "gamma") == []
 
     MutableSandbox.put_page("post-c.html", seed_page("C", date: "2026-06-01", tags: "gamma"))
     GenServer.cast(name, :refresh_content)
     _ = GenServer.call(name, :get_partials)
 
-    posts = Store.posts_by_tag(name, "gamma")
+    posts = Query.posts_by_tag(name, "gamma")
     assert Enum.map(posts, & &1.id) == ["post-c"]
     assert {:ok, _} = Store.get_page(name, "tags/gamma.html")
   end
 
   test "editing a post to change tags updates tag pages and DB", %{name: name} do
-    assert Store.posts_by_tag(name, "alpha") |> Enum.map(& &1.id) == ["post-a"]
+    assert Query.posts_by_tag(name, "alpha") |> Enum.map(& &1.id) == ["post-a"]
 
     MutableSandbox.put_page("post-a.html", seed_page("A", date: "2026-05-01", tags: "delta"))
     GenServer.cast(name, :refresh_content)
     _ = GenServer.call(name, :get_partials)
 
-    assert Store.posts_by_tag(name, "alpha") == []
-    assert Store.posts_by_tag(name, "delta") |> Enum.map(& &1.id) == ["post-a"]
+    assert Query.posts_by_tag(name, "alpha") == []
+    assert Query.posts_by_tag(name, "delta") |> Enum.map(& &1.id) == ["post-a"]
 
     assert {:ok, _} = Store.get_page(name, "tags/delta.html")
     assert {:error, :not_found} = Store.get_page(name, "tags/alpha.html")
@@ -86,7 +87,7 @@ defmodule Webserver.Content.LiveReloadTest do
     GenServer.cast(name, :refresh_content)
     _ = GenServer.call(name, :get_partials)
 
-    assert Store.posts_by_tag(name, "beta") == []
+    assert Query.posts_by_tag(name, "beta") == []
     assert {:error, :not_found} = Store.get_page(name, "tags/beta.html")
 
     # Untouched tag still works
