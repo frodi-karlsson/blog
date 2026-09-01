@@ -8,6 +8,7 @@ defmodule Webserver.Content.Store do
 
   alias Webserver.Content.BlogItemRenderer
   alias Webserver.Content.Builder
+  alias Webserver.Content.Config
   alias Webserver.Content.PageEntry
   alias Webserver.FrontMatter
   alias Webserver.Parser
@@ -69,7 +70,7 @@ defmodule Webserver.Content.Store do
   end
 
   defp handle_maybe_stale(table, server, path, %PageEntry{} = entry) do
-    [{:config, {_template_dir, interval, _reader, _live_reload?}}] = :ets.lookup(table, :config)
+    interval = Config.check_interval(table)
     now = System.system_time(:millisecond)
 
     if interval == 0 or now - entry.last_checked_at >= interval do
@@ -101,7 +102,13 @@ defmodule Webserver.Content.Store do
       write_concurrency: :auto
     ])
 
-    :ets.insert(table, {:config, {template_dir, check_interval, reader, live_reload?}})
+    Config.put(table, %{
+      template_dir: template_dir,
+      check_interval: check_interval,
+      reader: reader,
+      live_reload?: live_reload?
+    })
+
     :ets.insert(table, {:stats_hits, 0})
     :ets.insert(table, {:stats_misses, 0})
     :ets.insert(table, {:stats_revalidations, 0})
