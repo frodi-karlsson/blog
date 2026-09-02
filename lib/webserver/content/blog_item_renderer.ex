@@ -9,15 +9,8 @@ defmodule Webserver.Content.BlogItemRenderer do
   alias Webserver.Parser
   alias Webserver.Parser.ParseInput
 
-  @spec render(String.t(), map(), String.t(), map(), map(), map()) :: String.t()
-  def render(
-        filename,
-        meta,
-        template_dir,
-        partials,
-        partial_meta \\ %{},
-        compiled_partials \\ %{}
-      ) do
+  @spec render(String.t(), map(), String.t(), map(), map()) :: String.t()
+  def render(filename, meta, template_dir, partials, compiled_partials \\ %{}) do
     url = meta["path"] || FrontMatter.derive_path(filename)
     date = FrontMatter.format_date(meta["date"] || "")
     tags = normalize_tags(meta["tags"])
@@ -36,7 +29,6 @@ defmodule Webserver.Content.BlogItemRenderer do
       file: template,
       template_dir: template_dir,
       partials: partials,
-      partial_meta: partial_meta,
       compiled_partials: compiled_partials
     }
 

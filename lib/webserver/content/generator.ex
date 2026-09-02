@@ -44,20 +44,13 @@ defmodule Webserver.Content.Generator do
     end
   end
 
-  @spec generate_blog_index([{String.t(), map()}], map(), map(), map(), map()) :: String.t()
-  def generate_blog_index(pages_meta, state, partials, partial_meta, compiled_partials) do
+  @spec generate_blog_index([{String.t(), map()}], map(), map(), map()) :: String.t()
+  def generate_blog_index(pages_meta, state, partials, compiled_partials) do
     pages_meta
     |> Enum.filter(fn {_filename, meta} -> FrontMatter.blog_post?(meta) end)
     |> Enum.sort_by(fn {_filename, meta} -> meta["date"] end, :desc)
     |> Enum.map_join("\n", fn {filename, meta} ->
-      BlogItemRenderer.render(
-        filename,
-        meta,
-        state.template_dir,
-        partials,
-        partial_meta,
-        compiled_partials
-      )
+      BlogItemRenderer.render(filename, meta, state.template_dir, partials, compiled_partials)
     end)
   end
 
@@ -118,8 +111,8 @@ defmodule Webserver.Content.Generator do
     end
   end
 
-  @spec generate_tags_index_page([Post.t()], map(), map(), map(), map()) :: String.t()
-  def generate_tags_index_page(posts, state, partials, partial_meta, compiled_partials) do
+  @spec generate_tags_index_page([Post.t()], map(), map(), map()) :: String.t()
+  def generate_tags_index_page(posts, state, partials, compiled_partials) do
     tags_with_counts =
       posts
       |> Enum.flat_map(& &1.tags)
@@ -151,7 +144,6 @@ defmodule Webserver.Content.Generator do
       file: page_template,
       template_dir: state.template_dir,
       partials: partials,
-      partial_meta: partial_meta,
       compiled_partials: compiled_partials
     }
 
@@ -165,17 +157,17 @@ defmodule Webserver.Content.Generator do
     end
   end
 
-  @spec generate_tag_pages([Post.t()], map(), map(), map(), map()) :: %{String.t() => String.t()}
-  def generate_tag_pages(posts, state, partials, partial_meta, compiled_partials) do
+  @spec generate_tag_pages([Post.t()], map(), map(), map()) :: %{String.t() => String.t()}
+  def generate_tag_pages(posts, state, partials, compiled_partials) do
     posts
     |> Enum.flat_map(& &1.tags)
     |> Enum.uniq()
     |> Map.new(fn tag ->
-      {tag, generate_tag_page(tag, posts, state, partials, partial_meta, compiled_partials)}
+      {tag, generate_tag_page(tag, posts, state, partials, compiled_partials)}
     end)
   end
 
-  defp generate_tag_page(tag, all_posts, state, partials, partial_meta, compiled_partials) do
+  defp generate_tag_page(tag, all_posts, state, partials, compiled_partials) do
     matching = Enum.filter(all_posts, fn post -> tag in post.tags end)
 
     items =
@@ -185,7 +177,6 @@ defmodule Webserver.Content.Generator do
           Post.to_meta(post),
           state.template_dir,
           partials,
-          partial_meta,
           compiled_partials
         )
       end)
@@ -211,7 +202,6 @@ defmodule Webserver.Content.Generator do
       file: page_template,
       template_dir: state.template_dir,
       partials: partials,
-      partial_meta: partial_meta,
       compiled_partials: compiled_partials
     }
 

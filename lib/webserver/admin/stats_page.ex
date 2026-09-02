@@ -11,7 +11,6 @@ defmodule Webserver.Admin.StatsPage do
   @spec render(map()) :: String.t()
   def render(snapshot) do
     {:ok, partials} = Store.get_partials()
-    {:ok, partial_meta} = Store.get_partial_meta()
     {:ok, compiled_partials} = Store.get_compiled_partials()
     template_dir = Application.fetch_env!(:webserver, :template_dir)
 
@@ -42,7 +41,6 @@ defmodule Webserver.Admin.StatsPage do
            file: template,
            template_dir: template_dir,
            partials: partials,
-           partial_meta: partial_meta,
            compiled_partials: compiled_partials
          }) do
       {:ok, html} -> html

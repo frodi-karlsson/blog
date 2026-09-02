@@ -3,13 +3,11 @@ defmodule Webserver.Parser.ParseInput do
   Holds all the input necessary to parse a template file.
   """
 
-  alias Webserver.Parser.PartialMeta
   alias Webserver.Parser.Template
 
   @type t :: %__MODULE__{
           file: String.t(),
           partials: %{String.t() => String.t()},
-          partial_meta: %{String.t() => PartialMeta.t()},
           compiled_partials: %{String.t() => Template.t()},
           template_dir: String.t(),
           metadata: %{String.t() => any()},
@@ -18,7 +16,6 @@ defmodule Webserver.Parser.ParseInput do
 
   defstruct file: nil,
             partials: %{},
-            partial_meta: %{},
             compiled_partials: %{},
             template_dir: nil,
             metadata: %{},
