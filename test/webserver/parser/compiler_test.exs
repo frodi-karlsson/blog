@@ -1,6 +1,8 @@
 defmodule Webserver.Parser.CompilerTest do
   use ExUnit.Case, async: true
 
+  import ExUnit.CaptureLog
+
   alias Webserver.Parser.Compiler
   alias Webserver.Parser.Template
 
@@ -156,6 +158,20 @@ defmodule Webserver.Parser.CompilerTest do
         Compiler.compile_all(%{"partials/bad.html" => "<% oops", "partials/ok.html" => ""})
 
       assert Map.keys(compiled) == ["partials/ok.html"]
+    end
+
+    test "logs a warning naming the partial and the error when one fails to compile" do
+      log =
+        capture_log(fn ->
+          compiled =
+            Compiler.compile_all(%{"partials/bad.html" => "<% oops", "partials/ok.html" => ""})
+
+          refute Map.has_key?(compiled, "partials/bad.html")
+        end)
+
+      assert log =~ "partial_compile_failed"
+      assert log =~ "partials/bad.html"
+      assert log =~ "malformed_tag"
     end
   end
 end

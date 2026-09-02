@@ -13,6 +13,8 @@ defmodule Webserver.Parser.Compiler do
   alias Webserver.Parser.Tags
   alias Webserver.Parser.Template
 
+  require Logger
+
   # Slot and attr placeholders only. Asset placeholders (`{{+ ...}}`) stay in
   # the literal text: they are resolved by a pass over the fully rendered page,
   # not during the segment walk.
@@ -35,13 +37,24 @@ defmodule Webserver.Parser.Compiler do
 
   Partials that fail to compile are omitted rather than raising: the parser
   falls back to compiling on demand, which surfaces the same error to whoever
-  actually renders the broken partial, exactly as before.
+  actually renders the broken partial, exactly as before. A warning is logged
+  for each dropped partial so a malformed partial is visible at load time
+  rather than only when something happens to render it.
   """
   @spec compile_all(%{String.t() => String.t()}) :: %{String.t() => Template.t()}
   def compile_all(partials) do
-    for {key, text} <- partials, {:ok, template} <- [compile(text)], into: %{} do
+    for {key, text} <- partials,
+        template <- log_and_drop_errors(key, compile(text)),
+        into: %{} do
       {key, template}
     end
+  end
+
+  defp log_and_drop_errors(_key, {:ok, template}), do: [template]
+
+  defp log_and_drop_errors(key, {:error, reason}) do
+    Logger.warning(%{event: "partial_compile_failed", partial: key, reason: reason})
+    []
   end
 
   defp scan(content, offset, acc) do
