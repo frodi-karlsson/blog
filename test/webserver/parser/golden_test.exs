@@ -3,6 +3,20 @@ defmodule Webserver.Parser.GoldenTest do
   Renders every real page through the real templates and asserts structural
   invariants. Guards against a parser change that silently stops resolving
   nested partials or leaves placeholders unsubstituted.
+
+  ## This suite requires built assets
+
+  Rendering the real pages resolves `{{+ /static/... }}` placeholders against
+  the digest manifest, and the `<% img %/>` tag looks up intrinsic dimensions in
+  `assets_meta.json`. Neither exists until `mix assets.build` has run, and
+  `priv/static/` is gitignored, so a fresh checkout has no assets at all.
+
+  Without them every page fails to render with `{:unresolved_asset, ...}` or
+  `{:unresolved_image_meta, ...}`. CI therefore builds assets before `mix check`
+  — which also means the checks job now exercises the same asset state
+  production does, rather than one production never sees.
+
+  If you see those errors locally, run `mix assets.build`.
   """
   use ExUnit.Case, async: false
 
@@ -82,9 +96,14 @@ defmodule Webserver.Parser.GoldenTest do
     end
   end
 
-  test "asset placeholders are resolved", %{name: name} do
+  test "asset placeholders are resolved to digested filenames", %{name: name} do
     for {path, html} <- render_all(name) do
       refute html =~ "{{+", "#{path} contains an unresolved asset placeholder"
+
+      # A digested filename, not just the raw path -- proves the manifest was
+      # consulted rather than the placeholder being passed through.
+      assert html =~ ~r|/static/css/app\.[a-f0-9]{64}\.css|,
+             "#{path} references app.css without a content hash"
     end
   end
 end

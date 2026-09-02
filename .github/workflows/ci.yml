@@ -39,6 +39,22 @@ jobs:
       - name: Install dependencies
         run: mix deps.get --check-locked
 
+      # priv/static is gitignored, so a fresh checkout has no digest manifest
+      # and no assets_meta.json. Tests that render real pages then fail with
+      # {:unresolved_asset, _} / {:unresolved_image_meta, _}. Building here also
+      # means mix check runs against the same asset state production has.
+      - name: Install image tooling
+        run: sudo apt-get update && sudo apt-get install -y libvips-tools webp
+
+      # Order matters: sass compiles assets/css/app.scss into priv/static, then
+      # assets.build digests it. Skipping sass leaves app.css out of the
+      # manifest and pages fail with {:unresolved_asset, "/static/css/app.css"}.
+      - name: Build stylesheet
+        run: mix sass default
+
+      - name: Build assets
+        run: mix assets.build
+
       - name: Compile
         run: mix compile --warnings-as-errors
 
