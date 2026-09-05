@@ -1,0 +1,78 @@
+---
+title: pnop: A pnpm Alias That Refetches Its Own Token
+date: 2026-09-05
+tags: tooling, go
+summary: npm caps granular access tokens at 90 days and has no OIDC path for installs, so the token expiry lands on you. A small wrapper that notices and recovers.
+canonical: https://blog.frodikarlsson.com/pnop
+---
+<% layout.html %>
+  <slot:title>pnop: A pnpm Alias That Refetches Its Own Token</slot:title>
+  <slot:description>npm caps granular access tokens at 90 days and has no OIDC path for installs, so the token expiry lands on you. A small wrapper that notices and recovers.</slot:description>
+  <slot:og_type>article</slot:og_type>
+  <slot:body>
+    <% blog_post.html %>
+      <slot:date>Sep 5, 2026</slot:date>
+      <slot:title>pnop: A pnpm Alias That Refetches Its Own Token</slot:title>
+      <slot:content>
+        <p>npm granular access tokens are capped at 90 days. There's no way to mint one that lasts longer, so installing private packages means rotating a token four times a year.</p>
+
+        <p>OIDC doesn't help here. It gives CI an identity a registry can trust, which covers publishing, but my laptop has no such identity to present. <a href="https://github.com/orgs/community/discussions/181148" target="_blank" rel="noopener noreferrer">This discussion</a> has people working through the same thing and arriving nowhere better.</p>
+
+        <h2>Multiply that by everyone</h2>
+
+        <p>On its own the rotation is a minor chore. You run an install, it fails on a 401, and you spend a few minutes generating a token and pasting it into <code>~/.npmrc</code>.</p>
+
+        <p>In an organization it isn't one chore. The credential is shared, so someone rotates it and updates the vault, and then every developer still has to get the new token into their own <code>~/.npmrc</code>, and nothing prompts them to. They find out when an install fails, which is to say at the least convenient moment available, four times a year, each of them separately.</p>
+
+        <p>So the token I needed was already in 1Password. The copy on disk had just gone stale.</p>
+
+        <h2>pnop</h2>
+
+        <p><a href="https://github.com/frodi-karlsson/pnop" target="_blank" rel="noopener noreferrer">pnop</a> is a small Go binary that forwards everything to pnpm. If a command succeeds, it does nothing at all.</p>
+
+        <p>If a command fails, it first asks whether that command could have been talking to the registry at all. Local-only ones like <code>test</code>, <code>run</code>, <code>exec</code>, <code>ls</code> and <code>why</code> are left alone, so a failing test suite never reaches for the vault. Anything else, including commands pnop doesn't recognise, counts as registry touching.</p>
+
+        <p>For those, it compares the token in your <code>.npmrc</code> against the one in 1Password:</p>
+
+        <ul>
+          <li><strong>They match.</strong> The token isn't the problem. The original error and pnpm's exit code pass through untouched.</li>
+          <li><strong>They differ.</strong> Rewrite the <code>.npmrc</code> with the fresh token and rerun the command once.</li>
+        </ul>
+
+        <p>That's the whole idea. The rerun is conditional on the token having actually changed, so a command that failed for any other reason never runs twice.</p>
+
+        <p>Two things I was careful about:</p>
+
+        <p><strong>1Password is not touched on the happy path.</strong> The config isn't even loaded until a command has failed, and not even then unless it was the kind of command that could have needed a token.</p>
+
+        <p><strong>pnpm's exit code survives.</strong> The wrapper returns whatever pnpm returned, so scripts and CI see the real number rather than pnop's opinion of it.</p>
+
+        <h2>Setup</h2>
+
+        <pre><code class="language-sh">brew install --cask frodi-karlsson/tap/pnop
+
+pnop setup -c work --vault=MyVault --item="My item" --field=MyField</code></pre>
+
+        <p>The field's value can be a bare token or a whole <code>//registry.npmjs.org/:_authToken=&lt;token&gt;</code> line.</p>
+
+        <p>You can define more than one config and switch between them, which I use for work and personal registries:</p>
+
+        <pre><code class="language-sh">pnop setup -c personal --vault=MyOtherVault --item="My other item" --field=MyField
+pnop setup -c personal   # switch
+pnop setup -c work       # switch back</code></pre>
+
+        <p>Switching rewrites the npmrc with that config's token. Running <code>setup -c</code> against the config that's already active just refetches, which is the manual override when you want one.</p>
+
+        <p>Then in my shell config:</p>
+
+        <pre><code class="language-sh">alias pnpm=pnop</code></pre>
+
+        <h2>What this doesn't solve</h2>
+
+        <p>CI. The 90-day rotation still applies to whatever token your pipeline uses, and pnop has no answer for that. It's a local tool that happens to know where my token lives. The discussion above lists the actual options there: GitHub Packages with the built-in token, a registry proxy, or an automated rotation workflow. All of them are more work than an alias.</p>
+
+        <p>It also doesn't make the expiry go away. It moves the recovery from "notice, open a browser, generate, paste, rerun" to "the rerun already happened," which is as much as I wanted from it.</p>
+      </slot:content>
+    <%/ blog_post.html %>
+  </slot:body>
+<%/ layout.html %>
