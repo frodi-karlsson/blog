@@ -10,6 +10,18 @@ defmodule Webserver.LiveReload do
   def init(opts), do: opts
 
   def call(conn, _opts) do
+    # The route is compiled unconditionally, but PubSub is only supervised when
+    # live reload is on. Without this check a production request commits a
+    # chunked 200 and then dies subscribing to a process that was never
+    # started, leaving the client a truncated body and the log a crash.
+    if Process.whereis(PubSub) do
+      stream(conn)
+    else
+      send_resp(conn, 404, "Not Found")
+    end
+  end
+
+  defp stream(conn) do
     conn =
       conn
       |> put_resp_header("content-type", "text/event-stream")
