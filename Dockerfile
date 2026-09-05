@@ -1,4 +1,4 @@
-FROM elixir:1.19.5-slim AS build
+FROM elixir:1.20.4-slim AS build
 
 RUN apt-get update && \
     apt-get install -y build-essential bash ca-certificates libvips-tools webp && \
