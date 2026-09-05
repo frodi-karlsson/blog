@@ -30,9 +30,11 @@ canonical: https://blog.frodikarlsson.com/pnop
 
         <p><a href="https://github.com/frodi-karlsson/pnop" target="_blank" rel="noopener noreferrer">pnop</a> is a small Go binary that forwards everything to pnpm. If a command succeeds, it does nothing at all.</p>
 
-        <p>If a command fails, it first asks whether that command could have been talking to the registry at all. Local-only ones like <code>test</code>, <code>run</code>, <code>exec</code>, <code>ls</code> and <code>why</code> are left alone, so a failing test suite never reaches for the vault. Anything else, including commands pnop doesn't recognise, counts as registry touching.</p>
+        <p>If a command fails, it reads what pnpm printed. Unless pnpm reported a registry authentication problem, pnop stays out of the way, so a failing test suite or a type error never reaches for the vault.</p>
 
-        <p>For those, it compares the token in your <code>.npmrc</code> against the one in 1Password:</p>
+        <p>My first attempt decided this from the command instead, with a list of subcommands that never touch the registry. That can't work. pnpm runs any package.json script as a bare subcommand, so a script that shells out to a compiler and a real pnpm command that hits the registry are indistinguishable from the outside. Whether the registry was contacted is a fact about what the process did, not about how its arguments looked. Reading the output also catches a registry failure inside a script that happens to wrap pnpm, which no amount of inspecting arguments would find.</p>
+
+        <p>When pnpm did report an auth problem, pnop compares the token in your <code>.npmrc</code> against the one in 1Password:</p>
 
         <ul>
           <li><strong>They match.</strong> The token isn't the problem. The original error and pnpm's exit code pass through untouched.</li>
@@ -43,7 +45,7 @@ canonical: https://blog.frodikarlsson.com/pnop
 
         <p>Two things I was careful about:</p>
 
-        <p><strong>1Password is not touched on the happy path.</strong> The config isn't even loaded until a command has failed, and not even then unless it was the kind of command that could have needed a token.</p>
+        <p><strong>1Password is not touched on the happy path.</strong> The config isn't even loaded until a command has failed, and not even then unless pnpm said the registry turned it away.</p>
 
         <p><strong>pnpm's exit code survives.</strong> The wrapper returns whatever pnpm returned, so scripts and CI see the real number rather than pnop's opinion of it.</p>
 
